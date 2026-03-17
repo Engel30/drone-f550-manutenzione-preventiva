@@ -24,7 +24,7 @@
 | ID | Componente | Modello | Qtà | Note |
 |----|-----------|---------|-----|------|
 | A-01 | Flight Controller | CubePilot Cube Black | 1 | Contiene IMU multiple |
-| A-02 | Carrier Board | TBD (da verificare modello) | 1 | Interfaccia tra Cube e periferiche |
+| A-02 | Carrier Board | CubePilot Standard Carrier Board | 1 | Interfaccia tra Cube e periferiche; connettori TELEM, GPS, CAN, POWER, USB, I2C |
 | A-03 | Accelerometro (IMU interna) | Integrato nel Cube Black (x2) | 2 | Montati su pedana antivibrante interna con piedini in gomma |
 | A-04 | Accelerometro (esterno) | Integrato nel Cube Black (x1) | 1 | Saldato direttamente sul frame |
 | A-05 | Giroscopio | Integrato nel Cube Black (x2) | 2 | Rilevano velocità angolare |
