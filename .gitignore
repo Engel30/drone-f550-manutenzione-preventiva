@@ -1,6 +1,5 @@
 # Log di volo PX4 (binari, pesanti, non da committare)
-logs/
-log/
+# log/*.ulg
 
 # Output di analisi
 *.csv
