@@ -34,8 +34,8 @@ I parametri `BAT1_V_CHANNEL` e `BAT1_I_CHANNEL` indicano *quali* canali ADC legg
 | `BAT1_V_DIV` | calibrato | Fattore di scala tensione (default 18.182) |
 | `BAT1_A_PER_V` | calibrato | Fattore di scala corrente (default 36.364) |
 | `BAT1_V_CHARGED` | `4.20` | V/cella a piena carica |
-| `BAT1_V_EMPTY` | `3.50` | V/cella a scarica |
-| `BAT1_CAPACITY` | `5600` | mAh |
+| `BAT1_V_EMPTY` | `3.20` | V/cella a scarica |
+| `BAT1_CAPACITY` | `6700` | mAh |
 | `SENS_EN_INA226/228/238` | `0` | Driver digitali I2C disabilitati (PM è analogico) |
 
 ## Procedura di calibrazione
