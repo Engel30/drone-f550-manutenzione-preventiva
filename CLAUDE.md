@@ -3,7 +3,7 @@
 ## Progetto
 
 Progetto universitario per il corso di **Manutenzione Preventiva** (A.A. 2025/2026).
-Sistema: esacottero basato su frame DJI F550 con CubePilot Cube Black e firmware PX4.
+Sistema: esacottero basato su frame DJI F550 con Pixhawk 6X e firmware PX4.
 
 L'obiettivo finale è redigere una **relazione completa** sulle attività di manutenzione preventiva del drone.
 
@@ -51,6 +51,6 @@ Formato e struttura ancora da definire. In stand-by fino a indicazioni dal profe
 
 - Il drone usa **PX4** (non ArduPilot) come firmware
 - La ground station è **QGroundControl**
-- Il Cube Black ha 3 IMU ridondanti (sensor voting)
+- Il Pixhawk 6X ha 3 IMU ridondanti integrate (sensor voting)
 - Il frame F550 ha la PDB integrata nella piastra inferiore
 - GPS montato su mast per ridurre interferenze EMI

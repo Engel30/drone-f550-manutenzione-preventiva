@@ -4,7 +4,7 @@
 
 ## Descrizione
 
-Progetto universitario incentrato sulla manutenzione preventiva di un esacottero basato su frame DJI F550, equipaggiato con flight controller CubePilot Cube Black e firmware PX4.
+Progetto universitario incentrato sulla manutenzione preventiva di un esacottero basato su frame DJI F550, equipaggiato con flight controller Picshawk 6X e firmware PX4.
 
 ## Struttura della repository
 
@@ -22,7 +22,7 @@ manutenzione-preventiva-freddi/
 ## Componenti principali
 
 - **Frame**: DJI F550 (esacottero)
-- **FC**: CubePilot Cube Black
+- **FC**: Picshawk 6X
 - **Motori**: AIR2213 KV920 (x6)
 - **ESC**: Tekko32 F4 (x6)
 - **GPS**: CubePilot Here+ con base RTK

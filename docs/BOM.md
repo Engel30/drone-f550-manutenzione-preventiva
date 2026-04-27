@@ -1,7 +1,7 @@
 # Bill of Materials (BOM) — Esacottero F550
 
 > Corso di Manutenzione Preventiva — A.A. 2025/2026
-> Ultimo aggiornamento: 2026-03-17
+> Ultimo aggiornamento: 2026-04-27
 
 ## 1. Struttura
 
@@ -23,14 +23,14 @@
 
 | ID | Componente | Modello | Qtà | Note |
 |----|-----------|---------|-----|------|
-| A-01 | Flight Controller | CubePilot Cube Black | 1 | Contiene IMU multiple |
-| A-02 | Carrier Board | CubePilot Standard Carrier Board | 1 | Interfaccia tra Cube e periferiche; connettori TELEM, GPS, CAN, POWER, USB, I2C |
-| A-03 | Accelerometro (IMU interna) | Integrato nel Cube Black (x2) | 2 | Montati su pedana antivibrante interna con piedini in gomma |
-| A-04 | Accelerometro (esterno) | Integrato nel Cube Black (x1) | 1 | Saldato direttamente sul frame |
-| A-05 | Giroscopio | Integrato nel Cube Black (x2) | 2 | Rilevano velocità angolare |
-| A-06 | GPS | CubePilot Here+ | 1 | GNSS + magnetometro, montato su mast |
+| A-01 | Flight Controller | Picshawk 6X | 1 | Contiene IMU multiple, progettato per PX4 |
+| A-02 | Carrier Board | TBD (integrata/separata) | 1 | Interfaccia tra FC e periferiche; connettori TELEM, GPS, CAN, POWER, USB, I2C |
+| A-03 | Accelerometro (IMU) | Integrato nel Picshawk 6X | TBD | Numero e configurazione da verificare |
+| A-04 | Giroscopio (IMU) | Integrato nel Picshawk 6X | TBD | Numero e configurazione da verificare |
+| A-05 | Magnetometro | TBD (integrato o esterno) | TBD | Orientamento e montaggio da definire |
+| A-06 | GPS | CubePilot Here+ o compatibile | 1 | GNSS + magnetometro, montato su mast |
 | A-07 | Base RTK | TBD (marca da verificare) | 1 | Stazione base per correzione RTK |
-| A-08 | Buzzer | Incluso con Cube Black | 1 | Segnalazioni acustiche e allarmi |
+| A-08 | Buzzer | TBD | 1 | Segnalazioni acustiche e allarmi |
 
 ## 4. Alimentazione
 
@@ -67,5 +67,5 @@
 ## Note aggiuntive
 
 - Il frame F550 ha la PDB (Power Distribution Board) integrata nei bracci/piastra inferiore
-- Il Cube Black contiene internamente 3 IMU (ciascuna con accelerometro + giroscopio): 2 su pedana antivibrante isolata, 1 fissa. Questo fornisce ridondanza tripla per la navigazione inerziale
+- Il Picshawk 6X è un flight controller progettato per PX4 con configurazione IMU da verificare (potrebbero differire dal Cube Black precedente)
 - Il firmware PX4 utilizza la votazione tra le IMU per aumentare l'affidabilità (sensor voting)

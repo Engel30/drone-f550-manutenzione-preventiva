@@ -1,0 +1,12 @@
+# Log di volo PX4 (binari, pesanti, non da committare)
+logs/
+log/
+
+# Output di analisi
+*.csv
+maintenance/scripts/__pycache__/
+maintenance/plotjuggler/cache/
+
+# Sistema
+.DS_Store
+Thumbs.db
