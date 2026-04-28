@@ -4,7 +4,7 @@ plot/*.ulg
 
 # Output di analisi
 *.csv
-maintenance/scripts/__pycache__/
+**/__pycache__/
 maintenance/plotjuggler/cache/
 
 # Sistema
