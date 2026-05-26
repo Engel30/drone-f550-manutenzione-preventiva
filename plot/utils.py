@@ -8,6 +8,8 @@ import numpy as np
 from pyulog import ULog
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT  = os.path.dirname(SCRIPT_DIR)
+LOG_CURRENT_DIR = os.path.join(REPO_ROOT, "log_current")
 
 # ── Stile globale ─────────────────────────────────────────────────────────────
 matplotlib.rcParams.update({
@@ -43,11 +45,11 @@ COLOR_SETPT = '#455A64'                             # setpoint (grigio scuro)
 # ── Caricamento log ───────────────────────────────────────────────────────────
 
 def find_ulog() -> str:
-    files = glob.glob(os.path.join(SCRIPT_DIR, "*.ulg"))
+    files = glob.glob(os.path.join(LOG_CURRENT_DIR, "*.ulg"))
     if not files:
         raise FileNotFoundError(
-            "Nessun file .ulg trovato nella cartella plot/\n"
-            "Copia il file di log in plot/ prima di eseguire lo script."
+            f"Nessun file .ulg trovato in {LOG_CURRENT_DIR}\n"
+            f"Copia il log corrente in log_current/ prima di eseguire lo script."
         )
     latest = max(files, key=os.path.getmtime)
     return latest

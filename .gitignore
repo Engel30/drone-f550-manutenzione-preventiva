@@ -1,11 +1,15 @@
 # Log di volo PX4 (binari, pesanti, non da committare)
 **/*.ulg
-plot/*.ulg
+# MCAP generato dal convertitore (rigenerabile da .ulg, non da committare)
+**/*.mcap
 
 # Output di analisi
 *.csv
 **/__pycache__/
 maintenance/plotjuggler/cache/
+
+# Cache delle tile satellitari ESRI (scaricate on-demand da satellite_layer.py)
+foxglove/.tile_cache/
 
 # Sistema
 .DS_Store

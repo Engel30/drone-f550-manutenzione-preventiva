@@ -1,0 +1,311 @@
+<?xml version="1.0"?>
+<!--
+  Modello URDF dell'esacottero DJI F550 per replay in Foxglove.
+
+  Configurazione PX4 "hexa_x": motori a ±30°, ±90°, ±150° dalla direzione di volo.
+  Asse X = avanti, Y = sinistra, Z = su (convenzione ROS/Foxglove ENU).
+  Dimensioni: diagonale motore-motore 550 mm, elica 10" (254 mm).
+
+  Catena cinematica per ogni motore: base_link → arm_Mx → motor_Mx → prop_Mx.
+  I joint prop_Mx_joint sono di tipo "continuous" (rotazione libera attorno a Z):
+  l'angolo è pubblicato a runtime da ulog_to_mcap.py come FrameTransform su /tf,
+  con segno CW/CCW coerente con la convenzione PX4 hexa_x.
+-->
+<robot name="f550">
+
+  <material name="frame_dark">  <color rgba="0.15 0.15 0.15 1.0"/> </material>
+  <material name="arm_red">     <color rgba="0.80 0.10 0.10 1.0"/> </material>
+  <material name="arm_white">   <color rgba="0.92 0.92 0.92 1.0"/> </material>
+  <material name="motor_grey">  <color rgba="0.35 0.35 0.38 1.0"/> </material>
+  <material name="prop_dark">   <color rgba="0.10 0.10 0.12 0.92"/></material>
+  <material name="gps_mast">    <color rgba="0.10 0.45 0.80 1.0"/> </material>
+
+  <!-- ── Frame centrale (PDB integrata + Pixhawk sopra) ─────────────────── -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.15 0.15 0.04"/></geometry>
+      <material name="frame_dark"/>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0.035" rpy="0 0 0"/>
+      <geometry><box size="0.08 0.05 0.025"/></geometry>
+      <material name="frame_dark"/>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0.12" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.004" length="0.15"/></geometry>
+      <material name="gps_mast"/>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0.21" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.035" length="0.012"/></geometry>
+      <material name="gps_mast"/>
+    </visual>
+  </link>
+
+  <!-- ====== M1: destra-fronte (-30°) ====== -->
+  <joint name="arm_M1_joint" type="fixed">
+    <parent link="base_link"/> <child link="arm_M1"/>
+    <origin xyz="0 0 0" rpy="0 0 -0.5235987756"/>
+  </joint>
+  <link name="arm_M1">
+    <visual>
+      <origin xyz="0.13 0 0" rpy="0 1.5707963 0"/>
+      <geometry><cylinder radius="0.012" length="0.22"/></geometry>
+      <material name="arm_red"/>
+    </visual>
+  </link>
+  <joint name="motor_M1_joint" type="fixed">
+    <parent link="arm_M1"/> <child link="motor_M1"/>
+    <origin xyz="0.24 0 0.015" rpy="0 0 0"/>
+  </joint>
+  <link name="motor_M1">
+    <visual>
+      <geometry><cylinder radius="0.014" length="0.03"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+  </link>
+  <joint name="prop_M1_joint" type="continuous">
+    <parent link="motor_M1"/> <child link="prop_M1"/>
+    <origin xyz="0 0 0.022" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="prop_M1">
+    <visual>
+      <geometry><cylinder radius="0.012" length="0.006"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <visual>
+      <origin xyz="0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+  </link>
+
+  <!-- ====== M3: sinistra-fronte (+30°) ====== -->
+  <joint name="arm_M3_joint" type="fixed">
+    <parent link="base_link"/> <child link="arm_M3"/>
+    <origin xyz="0 0 0" rpy="0 0 0.5235987756"/>
+  </joint>
+  <link name="arm_M3">
+    <visual>
+      <origin xyz="0.13 0 0" rpy="0 1.5707963 0"/>
+      <geometry><cylinder radius="0.012" length="0.22"/></geometry>
+      <material name="arm_red"/>
+    </visual>
+  </link>
+  <joint name="motor_M3_joint" type="fixed">
+    <parent link="arm_M3"/> <child link="motor_M3"/>
+    <origin xyz="0.24 0 0.015" rpy="0 0 0"/>
+  </joint>
+  <link name="motor_M3">
+    <visual>
+      <geometry><cylinder radius="0.014" length="0.03"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+  </link>
+  <joint name="prop_M3_joint" type="continuous">
+    <parent link="motor_M3"/> <child link="prop_M3"/>
+    <origin xyz="0 0 0.022" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="prop_M3">
+    <visual>
+      <geometry><cylinder radius="0.012" length="0.006"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <visual>
+      <origin xyz="0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+  </link>
+
+  <!-- ====== M5: sinistra (+90°) ====== -->
+  <joint name="arm_M5_joint" type="fixed">
+    <parent link="base_link"/> <child link="arm_M5"/>
+    <origin xyz="0 0 0" rpy="0 0 1.5707963"/>
+  </joint>
+  <link name="arm_M5">
+    <visual>
+      <origin xyz="0.13 0 0" rpy="0 1.5707963 0"/>
+      <geometry><cylinder radius="0.012" length="0.22"/></geometry>
+      <material name="arm_white"/>
+    </visual>
+  </link>
+  <joint name="motor_M5_joint" type="fixed">
+    <parent link="arm_M5"/> <child link="motor_M5"/>
+    <origin xyz="0.24 0 0.015" rpy="0 0 0"/>
+  </joint>
+  <link name="motor_M5">
+    <visual>
+      <geometry><cylinder radius="0.014" length="0.03"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+  </link>
+  <joint name="prop_M5_joint" type="continuous">
+    <parent link="motor_M5"/> <child link="prop_M5"/>
+    <origin xyz="0 0 0.022" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="prop_M5">
+    <visual>
+      <geometry><cylinder radius="0.012" length="0.006"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <visual>
+      <origin xyz="0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+  </link>
+
+  <!-- ====== M2: sinistra-dietro (+150°) ====== -->
+  <joint name="arm_M2_joint" type="fixed">
+    <parent link="base_link"/> <child link="arm_M2"/>
+    <origin xyz="0 0 0" rpy="0 0 2.6179938"/>
+  </joint>
+  <link name="arm_M2">
+    <visual>
+      <origin xyz="0.13 0 0" rpy="0 1.5707963 0"/>
+      <geometry><cylinder radius="0.012" length="0.22"/></geometry>
+      <material name="arm_white"/>
+    </visual>
+  </link>
+  <joint name="motor_M2_joint" type="fixed">
+    <parent link="arm_M2"/> <child link="motor_M2"/>
+    <origin xyz="0.24 0 0.015" rpy="0 0 0"/>
+  </joint>
+  <link name="motor_M2">
+    <visual>
+      <geometry><cylinder radius="0.014" length="0.03"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+  </link>
+  <joint name="prop_M2_joint" type="continuous">
+    <parent link="motor_M2"/> <child link="prop_M2"/>
+    <origin xyz="0 0 0.022" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="prop_M2">
+    <visual>
+      <geometry><cylinder radius="0.012" length="0.006"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <visual>
+      <origin xyz="0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+  </link>
+
+  <!-- ====== M4: destra-dietro (-150°) ====== -->
+  <joint name="arm_M4_joint" type="fixed">
+    <parent link="base_link"/> <child link="arm_M4"/>
+    <origin xyz="0 0 0" rpy="0 0 -2.6179938"/>
+  </joint>
+  <link name="arm_M4">
+    <visual>
+      <origin xyz="0.13 0 0" rpy="0 1.5707963 0"/>
+      <geometry><cylinder radius="0.012" length="0.22"/></geometry>
+      <material name="arm_white"/>
+    </visual>
+  </link>
+  <joint name="motor_M4_joint" type="fixed">
+    <parent link="arm_M4"/> <child link="motor_M4"/>
+    <origin xyz="0.24 0 0.015" rpy="0 0 0"/>
+  </joint>
+  <link name="motor_M4">
+    <visual>
+      <geometry><cylinder radius="0.014" length="0.03"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+  </link>
+  <joint name="prop_M4_joint" type="continuous">
+    <parent link="motor_M4"/> <child link="prop_M4"/>
+    <origin xyz="0 0 0.022" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="prop_M4">
+    <visual>
+      <geometry><cylinder radius="0.012" length="0.006"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <visual>
+      <origin xyz="0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+  </link>
+
+  <!-- ====== M6: destra (-90°) ====== -->
+  <joint name="arm_M6_joint" type="fixed">
+    <parent link="base_link"/> <child link="arm_M6"/>
+    <origin xyz="0 0 0" rpy="0 0 -1.5707963"/>
+  </joint>
+  <link name="arm_M6">
+    <visual>
+      <origin xyz="0.13 0 0" rpy="0 1.5707963 0"/>
+      <geometry><cylinder radius="0.012" length="0.22"/></geometry>
+      <material name="arm_white"/>
+    </visual>
+  </link>
+  <joint name="motor_M6_joint" type="fixed">
+    <parent link="arm_M6"/> <child link="motor_M6"/>
+    <origin xyz="0.24 0 0.015" rpy="0 0 0"/>
+  </joint>
+  <link name="motor_M6">
+    <visual>
+      <geometry><cylinder radius="0.014" length="0.03"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+  </link>
+  <joint name="prop_M6_joint" type="continuous">
+    <parent link="motor_M6"/> <child link="prop_M6"/>
+    <origin xyz="0 0 0.022" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="prop_M6">
+    <visual>
+      <geometry><cylinder radius="0.012" length="0.006"/></geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <visual>
+      <origin xyz="0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.064 0 0.003" rpy="0 0.12 0"/>
+      <geometry><box size="0.115 0.020 0.004"/></geometry>
+      <material name="prop_dark"/>
+    </visual>
+  </link>
+
+</robot>

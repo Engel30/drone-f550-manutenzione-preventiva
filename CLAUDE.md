@@ -23,6 +23,11 @@ docs/
   datasheets/           → PDF dei datasheet dei componenti
 img/                    → Foto, schemi, diagrammi del drone
 maintenance/            → Piani di manutenzione, checklist, FMEA
+log/                    → Archivio storico dei log .ulg (per data)
+log_current/            → Singolo .ulg "corrente" + .mcap generato
+foxglove/               → Script di conversione .ulg→.mcap + URDF + doc Foxglove
+plot/                   → Script di plotting matplotlib (IMU, ESC, batteria, ...)
+  incidente/            → Analisi forense dello schianto (plot + relazione)
 ```
 
 ## Convenzioni

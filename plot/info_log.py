@@ -7,7 +7,7 @@ Riporta tutte le informazioni generali di un log PX4 (.ulg):
   manutenzione preventiva (modificabile sotto: EXPECTED_TOPICS)
 
 Uso:
-    python3 info_log.py                 # usa l'ultimo .ulg in plot/
+    python3 info_log.py                 # usa l'ultimo .ulg in log_current/
     python3 info_log.py path/al/log.ulg # log specifico
     python3 info_log.py --md            # salva anche report markdown
 """
@@ -420,7 +420,8 @@ def write_markdown(r: dict, out_path: str) -> None:
 
 def main():
     ap = argparse.ArgumentParser(description="Report informativo di un log PX4 .ulg")
-    ap.add_argument("ulog", nargs="?", help="Path al file .ulg (default: ultimo in plot/)")
+    ap.add_argument("ulog", nargs="?",
+                    help="Path al file .ulg (default: ultimo in log_current/)")
     ap.add_argument("--md", action="store_true",
                     help="Salva anche un report markdown accanto al log")
     ap.add_argument("--no-fields", action="store_true",

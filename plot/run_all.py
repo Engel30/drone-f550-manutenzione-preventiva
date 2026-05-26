@@ -5,7 +5,7 @@ Avvia tutti gli script di plot in sequenza.
 Uso:
     python3 run_all.py
 
-Il file .ulg deve trovarsi nella stessa cartella di questo script (plot/).
+Il file .ulg deve trovarsi in log_current/ (alla root del repo).
 I PNG vengono salvati nella sottocartella del rispettivo script.
 """
 
