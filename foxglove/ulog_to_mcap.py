@@ -122,6 +122,67 @@ ATTITUDE_EULER_SCHEMA = {
     },
 }
 
+# Schema per flight_state: altitudine positiva-verso-l'alto (relativa al takeoff)
+# + stringhe leggibili per nav_state e arming_state. Le label permettono al
+# pannello State Transitions di mostrare "AUTO_MISSION" invece di "3".
+FLIGHT_STATE_SCHEMA = {
+    "type": "object",
+    "title": "px4.flight_state",
+    "properties": {
+        "timestamp":               {"type": "integer"},
+        "altitude_rel_takeoff_m":  {"type": "number"},
+        "nav_state":               {"type": "integer"},
+        "nav_state_name":          {"type": "string"},
+        "arming_state":            {"type": "integer"},
+        "arming_state_name":       {"type": "string"},
+    },
+}
+
+# Mappature enum PX4 → nome (da PX4-Autopilot/msg/VehicleStatus.msg).
+# Tenute qui statiche per non dipendere da px4_msgs a runtime.
+NAV_STATE_NAMES = {
+    0:  "MANUAL",
+    1:  "ALTCTL",
+    2:  "POSCTL",
+    3:  "AUTO_MISSION",
+    4:  "AUTO_LOITER",
+    5:  "AUTO_RTL",
+    6:  "POSITION_SLOW",
+    7:  "FREE7",
+    8:  "FREE8",
+    9:  "FREE9",
+    10: "ACRO",
+    11: "FREE11",
+    12: "DESCEND",
+    13: "TERMINATION",
+    14: "OFFBOARD",
+    15: "STAB",
+    16: "FREE16",
+    17: "AUTO_TAKEOFF",
+    18: "AUTO_LAND",
+    19: "AUTO_FOLLOW_TARGET",
+    20: "AUTO_PRECLAND",
+    21: "ORBIT",
+    22: "AUTO_VTOL_TAKEOFF",
+    23: "EXTERNAL1",
+    24: "EXTERNAL2",
+    25: "EXTERNAL3",
+    26: "EXTERNAL4",
+    27: "EXTERNAL5",
+    28: "EXTERNAL6",
+    29: "EXTERNAL7",
+    30: "EXTERNAL8",
+}
+
+ARMING_STATE_NAMES = {
+    0: "INIT",
+    1: "STANDBY",
+    2: "ARMED",
+    3: "STANDBY_ERROR",
+    4: "SHUTDOWN",
+    5: "IN_AIR_RESTORE",
+}
+
 # Schema minimale per foxglove.SceneUpdate. Foxglove riconosce il tipo dal
 # campo `title`, quindi non serve trascrivere l'intero schema ufficiale —
 # basta che i campi che usiamo siano descritti per il MCAP writer.
@@ -363,6 +424,16 @@ def convert(ulog_path, mcap_path, t_start_s=None, t_end_s=None,
             schema_id=euler_schema_id, topic="attitude_euler", message_encoding="json",
         )
 
+        flight_state_schema_id = writer.register_schema(
+            name="px4.flight_state",
+            encoding="jsonschema",
+            data=json.dumps(FLIGHT_STATE_SCHEMA).encode(),
+        )
+        flight_state_channel_id = writer.register_channel(
+            schema_id=flight_state_schema_id, topic="flight_state",
+            message_encoding="json",
+        )
+
         # ── Overlay satellitare (foxglove.SceneUpdate, opzionale) ────────
         # Una sola entità "satellite_ground" emessa al primo timestamp utile,
         # con frame_locked=True così resta ancorata a local_origin per sempre.
@@ -572,6 +643,53 @@ def convert(ulog_path, mcap_path, t_start_s=None, t_end_s=None,
                 )
                 n_euler += 1
             print(f"  ✓ attitude_euler: {n_euler} sample (rpy + setpoint, gradi)")
+
+            # ── Topic derivato: flight_state ─────────────────────────────
+            # Emette altitudine positiva-verso-l'alto (relativa al takeoff)
+            # + nome leggibile di nav_state e arming_state. Frequenza
+            # allineata a vehicle_local_position (più denso di vehicle_status,
+            # quindi cattura le transizioni di stato con latenza < periodo).
+            vs_for_state = find_topic(ulog, "vehicle_status")
+            if vs_for_state is not None and "nav_state" in vs_for_state.data:
+                t_vs       = np.asarray(vs_for_state.data["timestamp"], dtype=np.int64)
+                nav_arr    = np.asarray(vs_for_state.data["nav_state"])
+                arming_arr = np.asarray(vs_for_state.data["arming_state"])
+            else:
+                t_vs = nav_arr = arming_arr = None
+
+            n_fs = 0
+            for i in range(len(t_pos)):
+                t_us = int(t_pos[i])
+                if not in_window(t_us):
+                    continue
+                # Altitudine relativa al takeoff: NED z è positiva verso il
+                # basso, off_z è già stato calcolato (con segno positivo-up)
+                # come riferimento all'armo. Il risultato è (alt - alt_armo).
+                altitude_rel = float(-z_n[i]) - off_z
+                if t_vs is not None:
+                    j = int(np.searchsorted(t_vs, t_us, side="right") - 1)
+                    j = max(0, min(j, len(t_vs) - 1))
+                    nav_v = int(nav_arr[j])
+                    arm_v = int(arming_arr[j])
+                else:
+                    nav_v = arm_v = -1
+                t_ns = t_us * 1000
+                msg = {
+                    "timestamp":              t_ns,
+                    "altitude_rel_takeoff_m": altitude_rel,
+                    "nav_state":              nav_v,
+                    "nav_state_name":         NAV_STATE_NAMES.get(nav_v, f"UNKNOWN_{nav_v}"),
+                    "arming_state":           arm_v,
+                    "arming_state_name":      ARMING_STATE_NAMES.get(arm_v, f"UNKNOWN_{arm_v}"),
+                }
+                writer.add_message(
+                    channel_id=flight_state_channel_id,
+                    log_time=t_ns, publish_time=t_ns,
+                    data=json.dumps(msg).encode(),
+                )
+                n_fs += 1
+            print(f"  ✓ flight_state: {n_fs} sample "
+                  f"(altitudine rel. takeoff + nav_state_name + arming_state_name)")
 
         # ── Inietta /tf eliche da esc_status (rotazione attorno a Z+) ────
         esc = find_topic(ulog, "esc_status")

@@ -49,63 +49,191 @@ QGC → Application Settings → General → RTK GPS → **Use Specified Base Po
 - `EKF2_REQ_EPH`, `EKF2_REQ_EPV`, `EKF2_REQ_SACC` — soglie minime accettazione GPS dall'EKF
 - `GPS_UBX_DYNMODEL` = 7 (airborne <2g) per u-blox
 
-## Secondo modo di guasto: desincronizzazione UART → reset driver GPS
+---
 
-**Osservato nel log** `log_current/10_45_41.ulg` (volo del 2026-05-26).
+## Secondo modo di guasto: buco di pubblicazione `sensor_gps` → degradazione EKF → quasi-schianto
+
+**Log di riferimento** `log/2026-05-26/10_54_52.ulg` (analisi diretta dall'ulg).
 
 ### Sintomi nel log di QGC
 
-Durante la fase di atterraggio autonomo (RTL → land at destination) compare la sequenza:
-
 ```
-[mc_pos_control] invalid setpoints
-[mc_pos_control] Failsafe: blind land
-[failsafe] Failsafe activated
-[gps] u-blox firmware version: HPG 1.40ROV
-[gps] u-blox protocol version: 20.30
-[gps] u-blox module: NEO-M8P-0
-[gps] ubx msg 0x0103 invalid len 64528
-[gps] u-blox firmware version: HPG 1.40ROV
-...
-[health_and_arming_checks] Preflight Fail: Strong magnetic interference
+1:24:07.708  [commander] Armed by external command
+1:24:09.728  [commander] Takeoff detected
+1:24:37.742  [commander] Pilot took over using sticks
+1:24:40.687  [mc_pos_control] invalid setpoints
+1:24:40.687  [mc_pos_control] Failsafe: blind land
+1:24:40.795  [failsafe] Failsafe activated
+1:24:45.731  [gps] ubx msg 0x0103 invalid len 7416
+1:24:46.009  [gps] u-blox firmware version: HPG 1.40ROV
+1:24:46.019  [gps] u-blox protocol version: 20.30
+1:24:46.029  [gps] u-blox module: NEO-M8P-0
+1:25:11.016  [commander] Landing detected
+1:25:13.023  [commander] Disarmed by landing
+1:25:13.023  [health_and_arming_checks] Preflight Fail: Strong magnetic interference
 ```
 
-### Interpretazione
+### Timeline puntuale ricostruito dai topic uORB
 
-Il trio `firmware version` / `protocol version` / `module` **non è log periodico**: il driver `gps` di PX4 lo stampa solo a (ri)apertura del device dopo aver interrogato `MON-VER`. Vederlo ripetuto = il driver ha resettato il modulo.
+| Wall-clock | PX4 ts | EKF `pos_horiz_accuracy` | I motori (somma 6 ESC) | `nav_state` | Evento |
+|---|---|---|---|---|---|
+| 1:24:36.73 | **1475.667** | 0.229 m | 18.7 A | AUTO_MISSION | **Ultimo `sensor_gps` pubblicato** |
+| 1:24:37.74 | 1477.742 | 0.500 m | 19.0 A → 14.2 A | AUTO_MISSION → POSCTL | Pilot took over (**+2.07 s** dal gap) |
+| 1:24:40.69 | 1480.687 | 1.236 m | 18.5 A | POSCTL | `invalid setpoints` → blind land |
+| 1:24:40.80 | 1480.795 | 1.236 m | 18.5 A | POSCTL → ALTCTL | Failsafe attivato (`cs_gnss_pos=0` a ts=1482.68) |
+| 1:24:45.73 | 1485.731 | 3.97 m | 18.7 A | ALTCTL | Driver rileva `ubx invalid len` (**+10 s** dal gap) |
+| 1:24:46.03 | 1486.029 | 4.45 m | 18.6 A | ALTCTL | Driver completa CFG-RST + MON-VER |
+| 1:24:47.5 | 1487.5 | 5.5 m | **47.5 A** picco | ALTCTL | Pilota dà throttle massimo (drone in deriva orizzontale a 2 m/s) |
+| 1:24:48.5 | 1488.5 | 7.1 m | **43.6 A** picco | ALTCTL | Seconda manovra evasiva |
+| 1:24:59.32 | **1497.276** | 19.36 m | 19.5 A | ALTCTL | **Primo `sensor_gps` di nuovo valido** (gap = 21.61 s) |
+| 1:24:59.4 | 1498.3 | 0.58 m | 19.7 A | ALTCTL → POSCTL → AUTO_PRECLAND | `cs_gnss_pos=1`, EKF riallinea |
+| 1:25:11.02 | 1511.016 | 0.24 m | landing | LAND | Atterraggio |
 
-La riga chiave è `ubx msg 0x0103 invalid len 64528`: il parser UBX ha trovato il sync header `0xB5 0x62` ma il campo lunghezza è spazzatura (≈ 0xFC10). È **desincronizzazione del flusso UART**, non un guasto del modulo. Dopo N pacchetti corrotti consecutivi il driver chiude la porta, fa `CFG-RST` e re-interroga il modulo — da cui il trio di righe.
+### Cosa dicono i dati — ipotesi falsificate
 
-### Causa radice probabile
+**❌ Sag di alimentazione**
+- `system_power.voltage5v_v` oscilla normalmente 5.04-5.24 V per tutto il volo, inclusi i 22 s del gap. Minimo 5.016 V (transitorio normale del BEC).
+- `sensors3v3[0..3]` stabili a 3.26-3.31 V.
+- **Il NEO-M8P è sempre stato in spec.** Non è un brown-out.
 
-Tre indizi convergono verso EMI / brown-out sul cavo GPS in fase ad alta corrente:
+**❌ EMI radiato/conduttivo da motori in transitorio**
+- All'istante dell'ultimo `sensor_gps` (ts=1475.667) la corrente totale motori è **18.7 A**, perfettamente in hover steady-state da 30 s. Nessun transitorio.
+- `sensor_mag[0]` norm: **std=0.016 G** nei 25 s prima del gap, identico al baseline.
+- I picchi di corrente 47 A e 43 A (con conseguenti spike EMI) sono arrivati **12-13 s DOPO** la fine del GPS — sono conseguenza delle manovre evasive del pilota, non causa.
 
-1. La desincronizzazione UART si manifesta **durante l'atterraggio autonomo**, quando i motori reagiscono con correnti più variabili per stabilizzare la quota.
-2. Il messaggio finale `Preflight Fail: Strong magnetic interference` conferma che a fine volo il campo magnetico era pesantemente disturbato: EMI sul magnetometro = EMI plausibile anche sul UART GPS che corre nello stesso fascio.
-3. Il F550 ha la PDB integrata nella piastra inferiore, quindi i cavi motore corrono molto vicini al cavo GPS che sale al mast.
+**❌ Manovra del pilota come trigger**
+- Il pilota ha preso i comandi a ts=1477.742, cioè **2.07 s DOPO** che `sensor_gps` aveva smesso di pubblicare. In quei 2 s l'EKF era già passato da 0.229 a 0.500 m di accuracy. Il pilota ha **reagito** al degrado visibile in QGC, non lo ha causato.
 
-In alternativa (o in concorso): sag di tensione sul rail che alimenta il modulo u-blox in transitorio motori → reset spontaneo del modulo.
+**❌ Guasto definitivo del modulo**
+- `fix_type` ritorna a **5 (RTK Float)** sia prima sia dopo il reset. Il modulo non si è mai guastato: ha continuato a vedere 15 satelliti, eph 1-2 cm. Il flusso UART tra modulo e Pixhawk si è solo **interrotto in trasmissione** per 22 s.
 
-### Mitigazioni proposte
+### Pattern confermato su un secondo log
 
-- **Ferrite clip** sul cavo GPS in prossimità del connettore Pixhawk.
-- **Separazione fisica** cavo GPS ↔ cavi fase motore (passaggio dal lato opposto del frame se possibile).
-- **Verifica `noise_per_ms` e `jamming_indicator`** in `listener sensor_gps` durante un hover statico ad alta corrente (cfr. `troubleshooting-gps-pixhawk6x.md`).
-- Plot dedicato in `plot/incidente/` che correli `sensor_gps.noise_per_ms`, `sensor_gps.jamming_indicator`, `satellites_used`, corrente di batteria e `vehicle_status.nav_state` per verificare la coincidenza temporale tra picco di corrente e reset GPS.
+Lo stesso pattern si è verificato in un volo precedente, `log/2026-05-26/10_45_41.ulg`, con condizioni operative diverse (AUTO_RTL "land at destination" in discesa a 2.4 m/s, non hover):
+
+- Modulo NEO-M8P-0 / firmware HPG 1.40ROV
+- 5 V rail stabile (5.07-5.20 V) all'istante del gap
+- Magnetometro **più stabile del baseline** (std 0.018 G vs 0.030 G) all'istante del gap
+- Corrente motori 15.7 A all'istante del gap (regime discesa controllata)
+- Fix_type=5 (RTK Float) sia prima sia dopo
+- Stesso messaggio `[gps] ubx msg 0x0103 invalid len` (con valore garbage diverso: 64528 vs 7416)
+- Stesso trio `firmware version / protocol / module` post-reinit
+
+**Dato killer: durata del gap praticamente identica al centesimo.**
+
+| Log | Inizio gap (ts) | Fine gap (ts) | Durata |
+|---|---|---|---|
+| 10_45_41 | 950.674 | 972.279 | **21.605 s** |
+| 10_54_52 | 1475.667 | 1497.276 | **21.609 s** |
+
+Differenza 4 ms. Un guasto meccanico (connettore intermittente) avrebbe durate stocastiche; un'EMI ambientale altrettanto. **Una durata identica al centesimo in due voli diversi indica un comportamento deterministico** — o un watchdog interno al modulo, o un timeout/sequenza deterministica del driver PX4.
+
+In più, in `10_45_41` il driver fa **3 reset consecutivi** (ts 961, 971, 987) — è il pattern di un driver che entra in uno stato di re-inizializzazione e fa ciclo di auto-detection.
+
+---
+
+### Cosa abbiamo verificato direttamente sul codice e sui documenti ufficiali
+
+> ⚠️ Le ipotesi sulla causa radice vanno presentate per quello che sono: **ipotesi**. Le seguenti verifiche servono a delimitare cosa è documentato vs cosa è congettura.
+
+#### Sul driver GPS di PX4 ([fonte 1, fonte 2])
+
+I timeout dichiarati nel codice (`PX4-Autopilot/src/drivers/gps/gps.cpp` e `PX4-GPSDrivers/src/gps_helper.h`):
+
+| Costante | Valore | Quando si applica |
+|---|---|---|
+| `TIMEOUT_5HZ` | 500 ms (+ 300 ms margine) | Driver healthy, rate 5 Hz |
+| `TIMEOUT_1HZ` | 1300 ms | Driver healthy, rate 1 Hz |
+| `TIMEOUT_INIT_5HZ` | 1500 ms | Durante init, rate 5 Hz |
+| `TIMEOUT_INIT_1HZ` | 3900 ms | Durante init, rate 1 Hz |
+| `TIMEOUT_DUMP_ADD` | +450 ms | Se logging RTCM3 attivo |
+
+**Nessun timeout interno da 21.6 s esiste nel codice.** Il driver non triggera automaticamente un `CFG-RST` lato modulo dopo silenzio: alla scadenza del timeout chiude la UART, marca `_healthy = false`, e re-entra nel loop di configurazione. Il `CFG-RST` + `MON-VER` visibili nel log sono parte della **sequenza di re-init del driver PX4**, non un comando applicato al modulo dopo un evento interno u-blox.
+
+L'auto-detection cicla i baudrate (9600/19200/38400/57600/115200/230400) e per ciascuno tenta `configure()` con ACK su CFG-PRT/CFG-MSG/CFG-RATE. Il tempo totale di questa sequenza dipende dal numero di baud falliti prima di trovare quello giusto; può facilmente arrivare a decine di secondi se il modulo non risponde subito.
+
+#### Sul firmware u-blox NEO-M8P ([fonte 3, fonte 4])
+
+- **L'ultimo firmware ufficiale per NEO-M8P è HPG 1.43** (FW 3.05, release 10 gennaio 2022, file `UBX_M8_305_HPG_143_ROVER.bin`).
+- **Non esiste alcun "HPG 1.50"** (il riferimento in versioni precedenti di questo documento era errato).
+- Le release notes di HPG 1.43 documentano due soli miglioramenti funzionali rispetto a HPG 1.40:
+  1. *Improved MSM correction stream handling* (stream MSM che includono messaggi non supportati o SBAS).
+  2. *Improved M8P base station BDS D2 encoding* (BeiDou GEO).
+- **Nessun fix esplicito** su PVT output stall, UART stall, RTK Float dropout, o re-inizializzazione del modulo.
+- L'unica *known limitation* affine in HPG 1.43 riguarda mix di correzioni GLONASS con cambio di reference station ID + data outage → genera **errori di posizione**, non interruzione della pubblicazione UBX per 21 s.
+
+Conclusione: la frase *"HPG 1.40 ha bug documentati di PVT output stall in RTK Float con RTCM in ingresso"* non è confermata dalla documentazione u-blox ufficiale disponibile. È un'ipotesi plausibile ma non un fatto verificato.
+
+### Ipotesi sulla causa radice — riordinate per evidenza
+
+> Tutte ipotesi non ancora confermate. Solo nuovi voli con `GPS_DUMP_COMM = 3` possono discriminarle.
+
+1. **🟡 Watchdog interno al firmware u-blox**
+   Il modulo potrebbe entrare in uno stato (es. per RTCM malformata, race condition in HPG 1.40, buffer interno saturato) da cui esce dopo un timeout interno fisso. Un watchdog hardware u-blox spiegherebbe la durata identica al centesimo. **Non documentato pubblicamente**, ma compatibile con i dati.
+
+2. **🟡 Tempo deterministico della sequenza di re-init del driver PX4**
+   La sequenza chiude UART → cicla baud → configure → primo `sensor_gps` valido può richiedere un tempo riproducibile. Tuttavia il driver inizia il ciclo solo **dopo** aver dichiarato `_healthy = false` (≤ 1.5 s dal silenzio), quindi questa ipotesi spiega al massimo gli ultimi ~15-20 s, non l'intervallo completo di 21.6 s a partire dall'ultimo PVT.
+
+3. **🟡 Saturazione UART 38400 baud**
+   PVT 5 Hz + UBX-RXM-RAWX + RTCM in ingresso sulla stessa UART a 38400 baud è vicino al limite di throughput. Un buffer overrun lato modulo (TX) o lato Pixhawk (RX) può desincronizzare il parser. Mitigazione naturale: alzare a 115200.
+
+4. **🟢 Falso contatto su connettore JST-GH GPS** (precedentemente prima ipotesi)
+   Declassata: improbabile dato il timing rigorosamente fisso (21.605 vs 21.609 s) — un connettore intermittente avrebbe durate stocastiche. Da ispezionare comunque per esclusione.
+
+### Perché questo guasto ha quasi fatto schiantare il drone
+
+Il **dropout GPS in sé non è l'emergenza**. L'emergenza l'ha creata la **logica di failsafe scelta**:
+
+1. PX4 ha triggerato `mc_pos_control: invalid setpoints` quando `pos_horiz_accuracy` ha superato ~1 m (3-5 s dopo l'inizio del gap).
+2. L'azione di failsafe configurata era `blind land` → in `10_54_52` ha messo il drone in **ALTCTL**, in `10_45_41` ha messo il drone in **DESCEND** (nav_state=12) → entrambe modalità **senza controllo orizzontale**.
+3. In 10-15 s il drone è derivato di 15 m orizzontalmente (velocità 2-3 m/s) — il pilota ha dovuto contro-attaccare per evitare lo schianto.
+
+### Spiegazione dei picchi di corrente (47 A in 10_54_52, 28 A in 10_45_41)
+
+I picchi NON sono transitorio motore "anomalo" come ipotizzato inizialmente. Sono la **conseguenza meccanica del pilota che reagisce a un drone fuori controllo**.
+
+Sequenza in `10_54_52` intorno a ts=1487.5-1488.5:
+- Drone in ALTCTL, in deriva orizzontale a 2 m/s, già sceso di 6 m sotto il punto di hover
+- Pilota porta throttle a +1.0 → tutti e 6 i motori vanno al 100% di duty cycle (`actuator_motors.control[i] = 1.0`)
+- Con batteria 4S ~15.7 V e 6 motori in saturazione: **picco istantaneo 47.5 A**
+- 1 s dopo (ts=1488): pilota inverte (drone sale troppo) → throttle a 0 → corrente crolla a **7.1 A**
+- Subito dopo (ts=1488.5): pilota dà di nuovo throttle → **43.6 A**
+- È **Pilot-Induced Oscillation (PIO) classico**: corregge eccessivamente perché ha perso riferimento spaziale stabile
+
+In `10_45_41` il picco è più contenuto (28.8 A) perché il drone era già in modalità AUTO_LAND (failsafe gestiva ancora un minimo di controllo verticale) e il pilota non ha potuto bypassarla con stick override (in DESCEND failsafe gli stick PX4 sono molto attenuati).
+
+**Il quasi-schianto e i picchi di corrente sono entrambi causati dalla logica di failsafe sbagliata, non dal modulo GPS.** Il modulo GPS è il trigger originale, ma è la catena di reazioni (failsafe → deriva → PIO → saturazione motore) a generare il rischio reale.
+
+### Azioni prioritarie (dettagli completi in [`azioni-pre-prossimo-volo.md`](./azioni-pre-prossimo-volo.md))
+
+1. **🔴 Riconfigurare il failsafe perdita posizione** (`COM_POSCTL_NAVL`, `COM_POS_FS_*`). Da solo elimina lo scenario di quasi-schianto, indipendentemente dalla causa del dropout.
+2. **🔴 Abilitare `GPS_DUMP_COMM = 3`** e ri-volare. Senza il dump UART grezzo del prossimo dropout, tutte le ipotesi sulla causa restano speculative.
+3. **🔴 Volo di test con `Use RTK = off`** (RTCM disabilitata da QGC). Se il dropout sparisce → causa nel flusso RTCM/firmware; se rimane → causa altrove.
+4. **🟡 Aggiornare firmware u-blox a HPG 1.43** (precauzionale: nessun fix specifico documentato, ma comunque l'ultima release stabile).
+5. **🟡 Alzare baud-rate UART GPS da 38400 a 115200** per ridurre rischio saturazione.
+6. **🟡 Aggiornare PX4** alla release stable corrente.
+7. **🟢 Ispezione connettore JST-GH GPS** (per esclusione).
+8. **🟢 Mitigazioni EMI** (ferrite clip, separazione cavi).
 
 ## Da fare
 
-- [ ] Test con ground plane sotto antenna base
+- [ ] Test con ground plane sotto antenna base (per il problema RTK Fixed, non per il dropout)
 - [ ] Verifica costellazioni attive sulla base (GPS+GLONASS+Galileo)
 - [ ] Decidere tra soluzione A (operativa) o B (punto fisso laboratorio)
-- [ ] Una volta raggiunto Fixed stabile a terra, ripetere il volo con landing
 - [ ] Formalizzare procedura pre-volo RTK in checklist dedicata
 - [ ] Aggiungere modo di guasto in FMEA: "Survey-in base RTK non converge → degradazione posizione → abort missione in landing"
-- [ ] Aggiungere secondo modo di guasto in FMEA: "EMI/sag sul UART GPS in fase ad alta corrente → desincronizzazione UBX → reset driver GPS → buchi nella stima di posizione → blind land failsafe"
-- [ ] Script `plot/incidente/analisi_gps.py` per correlare reset GPS, corrente batteria e qualità RF sul log `10_45_41.ulg`
+- [ ] Aggiungere modo di guasto in FMEA: "Dropout UART GPS → EKF dead-reckoning → failsafe blind-land in ALTCTL → deriva orizzontale incontrollata"
+- [x] Analisi diretta dei due ulg incidente (`10_45_41` e `10_54_52`)
+- [ ] **PRIMA DEL PROSSIMO VOLO**: applicare almeno le azioni 🔴 della checklist sopra
 
 ## Riferimenti
 
-- [PX4 RTK GPS docs](https://docs.px4.io/main/en/advanced_features/rtk-gps.html)
+- [PX4 RTK GPS docs (main)](https://docs.px4.io/main/en/advanced/rtk_gps.html)
 - Flight Review (analisi log): https://logs.px4.io
 - Messaggi RTCM3 minimi per F9P: 1005, 1077, 1087, 1097, 1127, 1230
+- **[fonte 1]** [Sorgente `gps.cpp` (PX4-Autopilot main)](https://github.com/PX4/PX4-Autopilot/blob/main/src/drivers/gps/gps.cpp) — timeout `TIMEOUT_5HZ = 500 ms`, `TIMEOUT_INIT_5HZ = 1500 ms`, logica di re-init dopo `receive() ≤ 0`
+- **[fonte 2]** [Sorgente `ubx.cpp` (PX4-GPSDrivers main)](https://github.com/PX4/PX4-GPSDrivers/blob/main/src/ubx.cpp) — parser UBX, generazione del messaggio "ubx msg 0xXXXX invalid len" quando il payload non rispetta la lunghezza attesa
+- **[fonte 3]** [Release note u-blox HPG 1.43 (UBX-21035325, gennaio 2022)](https://content.u-blox.com/sites/default/files/NEO-M8P_FW305-RTK143_RN_UBX-21035325.pdf) — ultima versione firmware per NEO-M8P; bugfix limitati a gestione MSM e BDS D2; nessun fix per stall PVT/UART
+- **[fonte 4]** [Release note u-blox HPG 1.40 (UBX-17021504, 2018)](https://content.u-blox.com/sites/default/files/NEO-M8P-FW301-HPG140_RN_(UBX-17021504).pdf) — versione attualmente flashata sul Here+
+- [Pagina prodotto u-blox NEO-M8P](https://www.u-blox.com/en/product/neo-m8p-series)
+- [PR PX4-GPSDrivers #109 — RTK→DGNSS timeout](https://github.com/PX4/PX4-GPSDrivers/pull/109) — discussione su gestione del timeout RTCM in PX4

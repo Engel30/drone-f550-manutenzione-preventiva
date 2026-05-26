@@ -153,8 +153,56 @@ python3 foxglove/ulog_to_mcap.py --all [DIR] [opzioni]
    - **`attitude_euler`**: topic derivato con roll/pitch/yaw **in gradi**, sia
      misurato sia setpoint. Comodo per i plot senza dover convertire i quaternioni
      dentro Foxglove.
+   - **`flight_state`**: topic derivato con `altitude_rel_takeoff_m` (positivo
+     verso l'alto, parte da 0 all'armo) e i nomi leggibili degli stati
+     (`nav_state_name`, `arming_state_name`). Permette al pannello State
+     Transitions di mostrare "AUTO_MISSION", "POSCTL", "AUTO_LAND" al posto
+     dei codici numerici (3, 2, 18). Vedi
+     [Topic derivato `flight_state`](#topic-derivato-flight_state).
    - **`logged_messages`**: i messaggi INFO/WARN/ERROR di PX4 esposti come
      schema `foxglove.Log`, visualizzabili dal Log panel.
+
+### Topic derivato `flight_state`
+
+Risolve due problemi pratici di replay che il pannello Foxglove standard non
+gestisce bene leggendo i topic uORB grezzi:
+
+**1. Altitudine "al contrario".** PX4 esprime la posizione locale in
+convenzione NED, quindi `vehicle_local_position.z` cresce **scendendo**.
+Plottata così, la curva di altitudine appare specchiata (drone che sale →
+curva che scende). `flight_state.altitude_rel_takeoff_m` espone l'altitudine
+in convenzione positiva-up, con offset all'istante d'armo (`arming_state==2`),
+così la curva parte da 0 e cresce di pari passo con il drone che sale.
+Formula: `altitude_rel_takeoff_m = -vehicle_local_position.z - off_z_armo`.
+
+**2. Stati come numeri.** Il pannello State Transitions di Foxglove mostra i
+valori grezzi sui segmenti — vedere "3" o "18" non è informativo. Foxglove
+sa leggere le costanti enum solo se lo schema è ROS `.msg` (sezione
+`constants`); con schemi JSON Schema (come quelli che generiamo dal `.ulg`)
+quella feature non si attiva. La soluzione è esporre un campo `string` con
+il nome: il pannello State Transitions lo usa come etichetta dei segmenti
+automaticamente.
+
+| Codice | Nome | Significato |
+|---|---|---|
+| `nav_state` 0 | `MANUAL` | Modalità acrobatica completa |
+| `nav_state` 2 | `POSCTL` | Position control (stick = velocità) |
+| `nav_state` 3 | `AUTO_MISSION` | Esecuzione mission plan |
+| `nav_state` 4 | `AUTO_LOITER` | Loiter su waypoint corrente |
+| `nav_state` 5 | `AUTO_RTL` | Return-to-Launch |
+| `nav_state` 12 | `DESCEND` | Discesa controllata (failsafe) |
+| `nav_state` 17 | `AUTO_TAKEOFF` | Takeoff automatico |
+| `nav_state` 18 | `AUTO_LAND` | Atterraggio automatico (failsafe) |
+| `arming_state` 1 | `STANDBY` | Disarmato, pronto |
+| `arming_state` 2 | `ARMED` | Armato (motori che possono girare) |
+
+Mappa completa in `NAV_STATE_NAMES` e `ARMING_STATE_NAMES` in cima a
+`ulog_to_mcap.py`. Allineate a `PX4-Autopilot/msg/VehicleStatus.msg`.
+
+Nei pannelli usa:
+- Plot altitudine: `flight_state.altitude_rel_takeoff_m`
+- State Transitions modi di volo: `flight_state.nav_state_name`
+- State Transitions armato: `flight_state.arming_state_name`
 
 ### Conversioni di coordinate
 
@@ -227,6 +275,7 @@ naturalmente sfasate invece di tutte sincronizzate a 0°.
 |---|---|---|---|
 | `/tf` | `foxglove.FrameTransform` | ~2k body + ~6k eliche | Posa drone + rotazione eliche |
 | `attitude_euler` | `px4.attitude_euler_deg` | ~2k | RPY in gradi (misurato + setpoint) |
+| `flight_state` | `px4.flight_state` | ~1k | Altitudine positiva-up + nomi stati |
 | `logged_messages` | `foxglove.Log` | ~10 | INFO/WARN/ERROR firmware |
 
 I 147 topic uORB originali sono preservati con nomi identici al `.ulg`
@@ -388,7 +437,9 @@ pannello: `+ Add panel` → tipo → configura come indicato.
 |---|---|---|---|
 | 1 | **3D Scene** | 3D | (URDF + `/tf` + grid) |
 | 2 | **Log** | Log | `logged_messages` |
-| 3 | **State Transitions nav_state** | State Transitions | `vehicle_status.nav_state` |
+| 3 | **State Transitions nav_state** | State Transitions | `flight_state.nav_state_name` (etichette leggibili) |
+| 3b | **State Transitions arming** | State Transitions | `flight_state.arming_state_name` |
+| 3c | **Plot Altitudine** | Plot | `flight_state.altitude_rel_takeoff_m` (positivo verso l'alto, parte da 0 all'armo) |
 | 4 | **Indicator FD ROLL** | Indicator | `failure_detector_status.fd_roll` |
 | 5 | **Indicator FD MOTOR** | Indicator | `failure_detector_status.fd_motor` |
 | 6 | **Indicator FAILSAFE** | Indicator | `vehicle_status.failsafe` |
