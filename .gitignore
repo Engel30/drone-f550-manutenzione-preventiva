@@ -14,3 +14,7 @@ foxglove/.tile_cache/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Alternate Data Streams di Windows/NTFS che appaiono come file sotto WSL
+*:Zone.Identifier
+*:Zone.Identifier:*
