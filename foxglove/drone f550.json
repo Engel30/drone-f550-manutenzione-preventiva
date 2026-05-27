@@ -1,0 +1,410 @@
+{
+  "configById": {
+    "3D!1n048pk": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 25.847108697960387,
+        "phi": 50.876625719566704,
+        "thetaOffset": 7.364514421063368,
+        "targetOffset": [
+          0.4589008897970441,
+          -1.174439922867897,
+          4.489125001571506e-17
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-position",
+      "scene": {
+        "enableStats": false,
+        "transforms": {
+          "showLabel": false,
+          "offsetReferenceFrame": "parent",
+          "visible": true,
+          "enablePreloading": true,
+          "lineWidth": 1,
+          "editable": false
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "vehicle_local_position": {
+          "visible": true,
+          "axisScale": 0.5,
+          "type": "axis"
+        },
+        "satellite_overlay": {
+          "visible": true
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": false,
+          "drawBehind": false,
+          "label": "Grid",
+          "instanceId": "05fd6317-22e1-430f-b601-1b8ec17bc195",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 14,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "frameId": "local_origin"
+        },
+        "ed532fac-664c-40ab-b89b-741b9cba9aaf": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 0.8,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "ed532fac-664c-40ab-b89b-741b9cba9aaf",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF",
+          "sourceType": "filePath",
+          "url": "",
+          "filePath": "\\\\wsl.localhost\\Ubuntu-22.04\\home\\angelo\\manutenzione-preventiva-freddi\\foxglove\\f550.urdf",
+          "parameter": "",
+          "topic": "",
+          "framePrefix": "",
+          "order": 1,
+          "links": {
+            "motor_M6": {
+              "visible": true
+            },
+            "base_link": {
+              "visible": true
+            },
+            "arm_M6": {
+              "visible": true
+            },
+            "motor_M4": {
+              "visible": true
+            },
+            "motor_M2": {
+              "visible": true
+            }
+          }
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {},
+      "followTf": "base_link",
+      "fixedFrame": "local_origin"
+    },
+    "Plot!2fgbm2e": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "esc_status.\"esc[0].esc_rpm\"",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "8e96256b-71db-4a11-b642-a0913a73f09e",
+          "label": "M1 cmd",
+          "showLine": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "esc_status.\"esc[1].esc_rpm\"",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "7ab586ba-0b47-4b7d-a8f7-ed92076b038b",
+          "label": "M2 cmd"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "esc_status.\"esc[2].esc_rpm\"",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "8aaf85de-98fd-40bc-acf8-3e469119ec41",
+          "label": "M3 cmd"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "esc_status.\"esc[3].esc_rpm\"",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "id": "0437a889-2c9c-416d-b6a9-0880e93be21e",
+          "label": "M4 cmd"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "esc_status.\"esc[4].esc_rpm\"",
+          "enabled": true,
+          "color": "#61cbff",
+          "id": "a1633220-60c8-47bd-8d03-7f88ebd03a29",
+          "label": "M5 cmd"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "esc_status.\"esc[5].esc_rpm\"",
+          "enabled": true,
+          "color": "#a395e2",
+          "id": "b0c0a7a2-26ed-4fe8-9a23-08f7b11bef2a",
+          "label": "M6 cmd"
+        }
+      ],
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "showYAxisLabels": true,
+      "showXAxisLabels": true,
+      "timeWindowMode": "automatic",
+      "showPlotValuesInLegend": false,
+      "showLegend": false,
+      "foxglovePanelTitle": "Motor RPM"
+    },
+    "Plot!2m140tf": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "actuator_motors.\"control[0]\"",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "8e96256b-71db-4a11-b642-a0913a73f09e",
+          "label": "M1 RPM",
+          "showLine": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "actuator_motors.\"control[1]\"",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "7ab586ba-0b47-4b7d-a8f7-ed92076b038b",
+          "label": "M2 RPM"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "actuator_motors.\"control[2]\"",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "8aaf85de-98fd-40bc-acf8-3e469119ec41",
+          "label": "M3 RPM"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "actuator_motors.\"control[3]\"",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "id": "0437a889-2c9c-416d-b6a9-0880e93be21e",
+          "label": "M4 RPM"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "actuator_motors.\"control[4]\"",
+          "enabled": true,
+          "color": "#61cbff",
+          "id": "a1633220-60c8-47bd-8d03-7f88ebd03a29",
+          "label": "M5 RPM"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "actuator_motors.\"control[5]\"",
+          "enabled": true,
+          "color": "#a395e2",
+          "id": "b0c0a7a2-26ed-4fe8-9a23-08f7b11bef2a",
+          "label": "M6 RPM"
+        }
+      ],
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "showYAxisLabels": true,
+      "showXAxisLabels": true,
+      "timeWindowMode": "automatic",
+      "showPlotValuesInLegend": false,
+      "showLegend": false,
+      "foxglovePanelTitle": "Motor cmd"
+    },
+    "Plot!1fwfsaq": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "manual_control_setpoint.roll",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "08763a2c-86cb-4ddc-ab77-35dcb55102f4",
+          "label": "manual roll"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "manual_control_setpoint.pitch",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "457bb724-0034-430d-8eff-1a07aab30fb9",
+          "label": "manual pitch"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "manual_control_setpoint.yaw",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "53b76241-11f6-4c6f-a830-c9c8c03e25c8",
+          "label": "manual yaw"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "manual_control_setpoint.throttle",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "id": "16f583f2-ecaf-4167-9ba2-552c30fa4c1f",
+          "label": "manual throttle"
+        }
+      ],
+      "showLegend": false,
+      "foxglovePanelTitle": "Radiocomando RPY"
+    },
+    "RosOut!5c7mtc": {
+      "minLogLevel": 1,
+      "preload": true,
+      "searchTerms": [],
+      "nameFilter": {
+        "PX4": {
+          "visible": true
+        }
+      },
+      "fontSize": 12,
+      "topicToRender": "logged_messages",
+      "foxglovePanelTitle": "Logged messages"
+    },
+    "StateTransitions!4gu1erc": {
+      "paths": [
+        {
+          "value": "flight_state.nav_state_name",
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": []
+          }
+        }
+      ],
+      "isSynced": true,
+      "xAxisDisplayMethod": "relative",
+      "showPoints": false,
+      "foxglovePanelTitle": "Drone state"
+    },
+    "RawMessages!11h16zx": {
+      "expansion": {
+        "nav_state_description": "e"
+      },
+      "defaultExpanded": true,
+      "topicPath": "flight_state"
+    },
+    "Plot!44ejiu9": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "sensor_gps.fix_type",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "78ddc401-ec1d-41d1-a5ca-0af2f285fcd5"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "sensor_gps.satellites_used",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "120d2286-cc58-4af0-88cf-b98519220d86"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "sensor_gps.eph",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "306cd006-395f-4e59-bd1f-0aff27a4387b"
+        }
+      ],
+      "showLegend": true,
+      "foxglovePanelTitle": "GPS quality"
+    },
+    "Plot!ab7s7g": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "flight_state.altitude_rel_takeoff_m",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "08763a2c-86cb-4ddc-ab77-35dcb55102f4",
+          "label": "altitude",
+          "showLine": true
+        }
+      ]
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": {
+      "first": "3D!1n048pk",
+      "second": {
+        "first": "Plot!2fgbm2e",
+        "second": {
+          "first": "Plot!2m140tf",
+          "second": "Plot!1fwfsaq",
+          "direction": "column"
+        },
+        "direction": "column",
+        "splitPercentage": 39.033456695536
+      },
+      "direction": "column",
+      "splitPercentage": 64.59361581905925
+    },
+    "second": {
+      "first": "RosOut!5c7mtc",
+      "second": {
+        "first": {
+          "first": {
+            "first": "StateTransitions!4gu1erc",
+            "second": "RawMessages!11h16zx",
+            "direction": "column",
+            "splitPercentage": 36.31578947368423
+          },
+          "second": "Plot!44ejiu9",
+          "direction": "column",
+          "splitPercentage": 75.08650519031141
+        },
+        "second": "Plot!ab7s7g",
+        "direction": "column",
+        "splitPercentage": 84.66796811917447
+      },
+      "direction": "column",
+      "splitPercentage": 30.536360142849983
+    },
+    "direction": "row",
+    "splitPercentage": 59.31321540062435
+  }
+}

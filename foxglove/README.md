@@ -164,8 +164,24 @@ python3 foxglove/ulog_to_mcap.py --all [DIR] [opzioni]
 
 ### Topic derivato `flight_state`
 
+Topic "interpretativo" che traduce i raw uORB in unità e label leggibili.
 Risolve due problemi pratici di replay che il pannello Foxglove standard non
-gestisce bene leggendo i topic uORB grezzi:
+gestisce bene leggendo i topic uORB grezzi.
+
+#### Schema dei campi
+
+| Campo | Tipo | Sorgente | Scopo |
+|---|---|---|---|
+| `timestamp` | int (ns) | `vehicle_local_position.timestamp` | Allineamento temporale |
+| `altitude_rel_takeoff_m` | number | `-vehicle_local_position.z - off_z_armo` | Quota positivo-up relativa al takeoff |
+| `nav_state` | int | `vehicle_status.nav_state` | Codice enum modo di volo |
+| `nav_state_name` | string | `NAV_STATE_NAMES[nav_state]` | Label corta (es. `AUTO_RTL`) — per State Transitions |
+| `nav_state_description` | string | `NAV_STATE_DESCRIPTIONS[nav_state]` | Frase esplicativa del modo — per Raw Messages / Indicator |
+| `arming_state` | int | `vehicle_status.arming_state` | Codice enum stato armo |
+| `arming_state_name` | string | `ARMING_STATE_NAMES[arming_state]` | Label corta (es. `ARMED`) |
+| `arming_state_description` | string | `ARMING_STATE_DESCRIPTIONS[arming_state]` | Frase esplicativa stato armo |
+
+#### Problemi risolti
 
 **1. Altitudine "al contrario".** PX4 esprime la posizione locale in
 convenzione NED, quindi `vehicle_local_position.z` cresce **scendendo**.
@@ -179,30 +195,54 @@ Formula: `altitude_rel_takeoff_m = -vehicle_local_position.z - off_z_armo`.
 valori grezzi sui segmenti — vedere "3" o "18" non è informativo. Foxglove
 sa leggere le costanti enum solo se lo schema è ROS `.msg` (sezione
 `constants`); con schemi JSON Schema (come quelli che generiamo dal `.ulg`)
-quella feature non si attiva. La soluzione è esporre un campo `string` con
-il nome: il pannello State Transitions lo usa come etichetta dei segmenti
-automaticamente.
+quella feature non si attiva. La soluzione è esporre due campi `string`:
+
+- **`_name`**: label corta usata dal pannello **State Transitions** come etichetta
+  automatica dei segmenti (sostituisce il numero con `AUTO_MISSION`, `POSCTL`, ecc.).
+- **`_description`**: frase esplicativa del modo, da bindare in un pannello
+  **Raw Messages** o **Indicator**. Durante lo scrubbing mostra "cosa sta
+  facendo il drone ora" senza dover ricordare l'enum.
+
+#### Tabella enum nav_state (modi di volo più comuni)
 
 | Codice | Nome | Significato |
 |---|---|---|
-| `nav_state` 0 | `MANUAL` | Modalità acrobatica completa |
+| `nav_state` 0 | `MANUAL` | Manuale acrobatico (su multirotore ricade in STAB) |
+| `nav_state` 1 | `ALTCTL` | Altitude control — mantiene quota |
 | `nav_state` 2 | `POSCTL` | Position control (stick = velocità) |
 | `nav_state` 3 | `AUTO_MISSION` | Esecuzione mission plan |
 | `nav_state` 4 | `AUTO_LOITER` | Loiter su waypoint corrente |
-| `nav_state` 5 | `AUTO_RTL` | Return-to-Launch |
-| `nav_state` 12 | `DESCEND` | Discesa controllata (failsafe) |
+| `nav_state` 5 | `AUTO_RTL` | Return-to-Launch (rientro a home + landing) |
+| `nav_state` 10 | `ACRO` | Acrobatico — solo rate, no autolivellamento |
+| `nav_state` 12 | `DESCEND` | Discesa controllata (failsafe perdita GPS) |
+| `nav_state` 14 | `OFFBOARD` | Controllo esterno via MAVLink/ROS |
+| `nav_state` 15 | `STAB` | Stabilized — autolivellamento attitudine |
 | `nav_state` 17 | `AUTO_TAKEOFF` | Takeoff automatico |
 | `nav_state` 18 | `AUTO_LAND` | Atterraggio automatico (failsafe) |
 | `arming_state` 1 | `STANDBY` | Disarmato, pronto |
 | `arming_state` 2 | `ARMED` | Armato (motori che possono girare) |
 
-Mappa completa in `NAV_STATE_NAMES` e `ARMING_STATE_NAMES` in cima a
-`ulog_to_mcap.py`. Allineate a `PX4-Autopilot/msg/VehicleStatus.msg`.
+Mappe complete (codici + nomi + descrizioni) in `NAV_STATE_NAMES`,
+`NAV_STATE_DESCRIPTIONS`, `ARMING_STATE_NAMES`, `ARMING_STATE_DESCRIPTIONS`
+in cima a `ulog_to_mcap.py`. Allineate a `PX4-Autopilot/msg/VehicleStatus.msg`.
 
-Nei pannelli usa:
-- Plot altitudine: `flight_state.altitude_rel_takeoff_m`
-- State Transitions modi di volo: `flight_state.nav_state_name`
-- State Transitions armato: `flight_state.arming_state_name`
+#### Uso nei pannelli Foxglove
+
+| Pannello | Message path | Cosa mostra |
+|---|---|---|
+| Plot | `flight_state.altitude_rel_takeoff_m` | Curva di quota positivo-up, parte da 0 all'armo |
+| State Transitions | `flight_state.nav_state_name` | Segmenti colorati per modo di volo (etichetta corta) |
+| State Transitions | `flight_state.arming_state_name` | Segmenti armato / disarmato |
+| Raw Messages | `flight_state.nav_state_description` | Frase esplicativa del modo attivo (segue lo scrubbing) |
+| Raw Messages | `flight_state.arming_state_description` | Frase esplicativa dello stato di armo attivo |
+| Indicator (String) | `flight_state.nav_state_description` | Alternativa compatta al Raw Messages |
+
+#### Storico delle estensioni
+
+| Data | Modifica | Motivazione |
+|---|---|---|
+| Setup iniziale | Topic `flight_state` con `altitude_rel_takeoff_m`, `nav_state`, `nav_state_name`, `arming_state`, `arming_state_name` | Plot altitudine positivo-up + label leggibili per State Transitions |
+| 2026-05-27 | Aggiunti `nav_state_description` e `arming_state_description` | Permettere a un pannello Raw Messages/Indicator di spiegare in chiaro il modo attivo durante lo scrubbing (es. AUTO_RTL → "Return-To-Launch — salita a quota sicura, ritorno a home, atterraggio") |
 
 ### Conversioni di coordinate
 
@@ -275,7 +315,7 @@ naturalmente sfasate invece di tutte sincronizzate a 0°.
 |---|---|---|---|
 | `/tf` | `foxglove.FrameTransform` | ~2k body + ~6k eliche | Posa drone + rotazione eliche |
 | `attitude_euler` | `px4.attitude_euler_deg` | ~2k | RPY in gradi (misurato + setpoint) |
-| `flight_state` | `px4.flight_state` | ~1k | Altitudine positiva-up + nomi stati |
+| `flight_state` | `px4.flight_state` | ~1k | Altitudine positiva-up + nomi e descrizioni stati |
 | `logged_messages` | `foxglove.Log` | ~10 | INFO/WARN/ERROR firmware |
 
 I 147 topic uORB originali sono preservati con nomi identici al `.ulg`
@@ -430,48 +470,44 @@ grazie al port forwarding nativo di WSL2.
 
 ## Layout dei pannelli
 
-Configurazione consigliata, ottimizzata per analisi del crash. Per ciascun
-pannello: `+ Add panel` → tipo → configura come indicato.
+Layout attuale committato in `foxglove/drone f550.json` — 9 pannelli organizzati
+in due colonne (split verticale ~59 % / 41 %). Per importarlo:
+`Layout` (menu in alto al centro) → `Import from file…` → seleziona
+`foxglove/drone f550.json`.
 
-| # | Pannello | Tipo Foxglove | Message paths |
+### Colonna sinistra (scena 3D + telemetria motori/pilota)
+
+| # | Pannello | Tipo | Configurazione |
 |---|---|---|---|
-| 1 | **3D Scene** | 3D | (URDF + `/tf` + grid) |
-| 2 | **Log** | Log | `logged_messages` |
-| 3 | **State Transitions nav_state** | State Transitions | `flight_state.nav_state_name` (etichette leggibili) |
-| 3b | **State Transitions arming** | State Transitions | `flight_state.arming_state_name` |
-| 3c | **Plot Altitudine** | Plot | `flight_state.altitude_rel_takeoff_m` (positivo verso l'alto, parte da 0 all'armo) |
-| 4 | **Indicator FD ROLL** | Indicator | `failure_detector_status.fd_roll` |
-| 5 | **Indicator FD MOTOR** | Indicator | `failure_detector_status.fd_motor` |
-| 6 | **Indicator FAILSAFE** | Indicator | `vehicle_status.failsafe` |
-| 7 | **Indicator ARMED** | Indicator | `vehicle_status.arming_state` (verde se =2) |
-| 8 | **Plot ESC RPM + cmd** | Plot | `esc_status.esc[0..5].esc_rpm` + `actuator_motors.control[0..5]` (scale ×6000) |
-| 9 | **Plot Rates** | Plot | `vehicle_angular_velocity.xyz[0..2]` + `vehicle_rates_setpoint.{roll,pitch,yaw}` (scale ×57.2958 per °/s) |
-| 10 | **Plot Attitude** | Plot | `attitude_euler.{roll,pitch,yaw,roll_setpoint,pitch_setpoint,yaw_setpoint}` |
-| 11 | **Plot Stick pilota** | Plot | `manual_control_setpoint.{roll,pitch,yaw,throttle}` |
-| 12 | **Plot Vibration & Clipping** | Plot | `vehicle_imu_status.{accel,gyro}_vibration_metric` + `accel_clipping[0..2]` |
+| 1 | **3D Scene** | 3D | `fixedFrame: local_origin`, `followTf: base_link`, follow mode = position. URDF `f550.urdf` caricato come Custom Layer. Topic visibili: `vehicle_local_position` (axis, scale 0.5) e `satellite_overlay`. Griglia disattivata (sostituita dall'overlay). |
+| 2 | **Motor RPM** | Plot | `esc_status.esc[0..5].esc_rpm` — RPM reali misurati dagli ESC. |
+| 3 | **Motor cmd** | Plot | `actuator_motors.control[0..5]` — comando normalizzato (0..1) inviato dal mixer. |
+| 4 | **Radiocomando RPY** | Plot | `manual_control_setpoint.{roll,pitch,yaw,throttle}` — input stick pilota. |
 
-### Cosa rivela ciascun pannello per il crash
+### Colonna destra (stato di volo + GPS + altitudine)
 
-| Pannello | Insight |
-|---|---|
-| Log | Cronologia testuale del crash (9 INFO da PX4 firmware) |
-| State Transitions | Le 3 transizioni AUTO_MISSION → POSCTL → AUTO_LAND |
-| Indicators | Lampadine: si accendono in cronologia, raccontano il fallimento in 2 sec |
-| ESC RPM | Lag ESC visibile durante AUTO_LAND (~0.3 s) |
-| Rates | Saturazione setpoint a ±220°/s → PIO confermata |
-| Attitude | Roll a −104° (drone capovolto) mentre setpoint resta limitato |
-| Stick | Throttle inchiodato a −1.0 dall'armo: la causa primaria |
-| Vibration | Vibrazioni nominali fino a impatto → nessun guasto pre-crash |
+| # | Pannello | Tipo | Configurazione |
+|---|---|---|---|
+| 5 | **Logged messages** | Log | Topic `logged_messages`. Filtro nome: `PX4`. Min level: 1 (INFO+). |
+| 6 | **Drone state** | State Transitions | `flight_state.nav_state_name` — segmenti colorati per modo di volo (etichette leggibili `AUTO_MISSION`, `POSCTL`, `AUTO_LAND`, …). |
+| 7 | **Raw Messages — flight_state** | Raw Messages | Topic `flight_state`, espande `nav_state_description` (frase esplicativa del modo attivo, segue lo scrubbing). |
+| 8 | **GPS quality** | Plot | `sensor_gps.{fix_type, satellites_used, eph}` — qualità del fix GPS (utile per diagnosi failsafe da GPS dropout). |
+| 9 | **Altitude** | Plot | `flight_state.altitude_rel_takeoff_m` — quota positivo-up relativa al takeoff. |
+
+> **Nota label**: nel JSON del layout le label dei plot **Motor RPM** e
+> **Motor cmd** risultano scambiate (i path `esc_rpm` mostrano label "M1 cmd",
+> i path `actuator_motors.control` mostrano label "M1 RPM"). I titoli dei
+> pannelli e i message path sono corretti — è solo l'etichetta della legenda
+> ad essere invertita. Da sistemare al prossimo passaggio in Foxglove.
 
 ### Salvataggio del layout
 
-Una volta sistemati i pannelli:
+Una volta modificati i pannelli in Foxglove:
 
-`Layout` (menu in alto al centro) → `Export layout` → salva in
-`foxglove/layout_incidente.json`.
+`Layout` (menu in alto al centro) → `Export layout` → sovrascrivi
+`foxglove/drone f550.json`.
 
-Il file JSON è committato nel repository. Per riusarlo:
-`Layout → Import from file → layout_incidente.json`.
+Il file JSON è committato nel repository.
 
 ---
 
@@ -663,7 +699,7 @@ foxglove/
 ├── ulog_to_mcap.py       ← script di conversione (≈ 300 righe)
 ├── satellite_layer.py    ← downloader tile ESRI + generatore GLB texturato
 ├── f550.urdf             ← modello 3D dell'esacottero (≈ 240 righe)
-├── layout_incidente.json ← layout Foxglove esportato (da generare)
+├── drone f550.json       ← layout Foxglove esportato (9 pannelli)
 └── .tile_cache/          ← cache locale tile ESRI (gitignored)
 ```
 

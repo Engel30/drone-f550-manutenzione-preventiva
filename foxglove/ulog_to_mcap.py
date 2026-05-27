@@ -133,8 +133,10 @@ FLIGHT_STATE_SCHEMA = {
         "altitude_rel_takeoff_m":  {"type": "number"},
         "nav_state":               {"type": "integer"},
         "nav_state_name":          {"type": "string"},
+        "nav_state_description":   {"type": "string"},
         "arming_state":            {"type": "integer"},
         "arming_state_name":       {"type": "string"},
+        "arming_state_description":{"type": "string"},
     },
 }
 
@@ -181,6 +183,39 @@ ARMING_STATE_NAMES = {
     3: "STANDBY_ERROR",
     4: "SHUTDOWN",
     5: "IN_AIR_RESTORE",
+}
+
+# Descrizioni brevi per ciascun nav_state — usate dal pannello Raw Messages /
+# Indicator in Foxglove per spiegare il modo di volo attivo durante lo
+# scrubbing. Frase compatta con parole chiave (no codici, no enum tecnici).
+NAV_STATE_DESCRIPTIONS = {
+    0:  "Manuale acrobatico — nessuna stabilizzazione (su multirotore ricade in STAB)",
+    1:  "Altitude control — mantiene quota; stick pitch/roll = inclinazione",
+    2:  "Position control — mantiene posizione e quota; stick = velocità desiderata",
+    3:  "Esecuzione automatica dei waypoint del piano di volo",
+    4:  "Hold automatico sul punto corrente — richiede GPS",
+    5:  "Return-To-Launch — salita a quota sicura, ritorno a home, atterraggio",
+    6:  "Position control lento — limiti di velocità ridotti per manovre fini",
+    10: "Acrobatico — stabilizza solo i rate angolari, no autolivellamento",
+    12: "Failsafe: discesa verticale controllata (perdita GPS in volo)",
+    13: "Failsafe estremo: spegnimento dei motori",
+    14: "Offboard — setpoint inviati via MAVLink/ROS da computer companion",
+    15: "Stabilized — autolivellamento attitudine, throttle manuale",
+    17: "Decollo automatico verticale fino a quota target",
+    18: "Atterraggio automatico verticale sul posto (failsafe o comandato)",
+    19: "Inseguimento di un bersaglio mobile",
+    20: "Atterraggio di precisione su marker visivo",
+    21: "Orbita attorno a un punto a raggio e velocità costanti",
+    22: "Decollo VTOL — transizione verticale → orizzontale",
+}
+
+ARMING_STATE_DESCRIPTIONS = {
+    0: "Boot iniziale del firmware",
+    1: "Disarmato — pronto all'arming dopo pre-flight check",
+    2: "Armato — motori abilitati a girare",
+    3: "Disarmato con errore nei pre-flight check",
+    4: "Spegnimento in corso",
+    5: "Ripristino dello stato in volo dopo reboot del flight controller",
 }
 
 # Schema minimale per foxglove.SceneUpdate. Foxglove riconosce il tipo dal
@@ -675,12 +710,14 @@ def convert(ulog_path, mcap_path, t_start_s=None, t_end_s=None,
                     nav_v = arm_v = -1
                 t_ns = t_us * 1000
                 msg = {
-                    "timestamp":              t_ns,
-                    "altitude_rel_takeoff_m": altitude_rel,
-                    "nav_state":              nav_v,
-                    "nav_state_name":         NAV_STATE_NAMES.get(nav_v, f"UNKNOWN_{nav_v}"),
-                    "arming_state":           arm_v,
-                    "arming_state_name":      ARMING_STATE_NAMES.get(arm_v, f"UNKNOWN_{arm_v}"),
+                    "timestamp":               t_ns,
+                    "altitude_rel_takeoff_m":  altitude_rel,
+                    "nav_state":               nav_v,
+                    "nav_state_name":          NAV_STATE_NAMES.get(nav_v, f"UNKNOWN_{nav_v}"),
+                    "nav_state_description":   NAV_STATE_DESCRIPTIONS.get(nav_v, ""),
+                    "arming_state":            arm_v,
+                    "arming_state_name":       ARMING_STATE_NAMES.get(arm_v, f"UNKNOWN_{arm_v}"),
+                    "arming_state_description":ARMING_STATE_DESCRIPTIONS.get(arm_v, ""),
                 }
                 writer.add_message(
                     channel_id=flight_state_channel_id,
