@@ -4,6 +4,10 @@
 **Stato**: RISOLTO  
 **Componente**: Pixhawk 6X, modulo GPS u-blox (protocollo UBX), porta GPS2
 
+> **Nota cronologica.** Questo documento descrive un problema di configurazione (`UAVCAN_ENABLE`, `GPS_1_CONFIG`) risolto il 27/04, **distinto** dai dropout in volo emersi successivamente:
+> - **Dropout 26/05** (singolo gap di 21.6 s): vedi [`troubleshooting-rtk.md`](./troubleshooting-rtk.md).
+> - **Dropout 27/05** (reinit ciclici, BER UART fino al 49 %): vedi [`troubleshooting-gps-dropout-2026-05-27.md`](./troubleshooting-gps-dropout-2026-05-27.md). Causa identificata: difetto fisico del cavo GPS auto-costruito tra Pixhawk e modulo.
+
 ---
 
 ## Descrizione del problema

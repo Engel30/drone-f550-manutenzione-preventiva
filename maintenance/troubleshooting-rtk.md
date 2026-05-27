@@ -1,5 +1,13 @@
 # Troubleshooting RTK — QGroundControl + PX4
 
+> **Aggiornamento 2026-05-27 — diagnosi del dropout `sensor_gps` confermata.**
+>
+> L'analisi del 27/05, con `GPS_DUMP_COMM = 1` abilitato per la prima volta, ha identificato la causa primaria dei dropout `sensor_gps` osservati nei voli 26/05 (gap 21.6 s) e moltiplicati nei voli 27/05 (fino a 6 reinit/100 s, BER UART fino al 49 %): si tratta di un **difetto di conduzione intermittente nel cavo GPS auto-costruito**, attivato dalle vibrazioni meccaniche durante il regime di lift dei motori. Il modulo NEO-M8P-0 non perde mai il fix dal proprio lato e PX4 non comanda mai reset al modulo — il problema è esclusivamente sul link UART fisico.
+>
+> Vedi **[`troubleshooting-gps-dropout-2026-05-27.md`](./troubleshooting-gps-dropout-2026-05-27.md)** per la diagnosi completa e le azioni correttive.
+>
+> Le sezioni di analisi forense più sotto restano valide come metodologia e timeline degli incidenti del 26/05, ma le **ipotesi sulla causa radice** (firmware HPG 1.40, RTCM malformato, watchdog interno modulo, saturazione UART) sono state tutte **falsificate** dai dati del 27/05.
+
 ## Sintomo iniziale
 
 Durante l'atterraggio autonomo, PX4 disattiva l'autopilota con errore `no valid position estimate`. RTK mai arrivato a Fixed: sempre Float.

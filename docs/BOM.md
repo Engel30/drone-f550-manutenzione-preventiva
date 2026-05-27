@@ -31,6 +31,7 @@
 | A-06 | GPS | CubePilot Here+ o compatibile | 1 | GNSS + magnetometro, montato su mast |
 | A-07 | Base RTK | TBD (marca da verificare) | 1 | Stazione base per correzione RTK |
 | A-08 | Buzzer | TBD | 1 | Segnalazioni acustiche e allarmi |
+| A-09 | Cavo GPS ↔ Pixhawk | Auto-costruito (JST-GH) | 1 | **Da ricostruire**: cavo attuale identificato come causa dei dropout `sensor_gps` (vedi `maintenance/troubleshooting-gps-dropout-2026-05-27.md`). Specifiche minime per la ricostruzione: ≥ 6 conduttori AWG 26-28, lunghezza ≤ 25 cm, schermatura con treccia + drain wire collegato a GND solo lato Pixhawk, connettori JST-GH crimpati con utensile dedicato. |
 
 ## 4. Alimentazione
 

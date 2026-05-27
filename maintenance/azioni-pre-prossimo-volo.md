@@ -1,20 +1,100 @@
 # Azioni correttive pre-prossimo volo
 
-> Checklist delle attività da completare **prima del prossimo volo** del F550 a seguito dei due incidenti del 2026-05-26 (log `10_45_41.ulg` e `10_54_52.ulg`).
+> Checklist delle attività da completare **prima del prossimo volo** del F550.
 >
-> Riferimento diagnostico completo: [`troubleshooting-rtk.md`](./troubleshooting-rtk.md), sezione "Secondo modo di guasto".
+> Origine: due incidenti del 2026-05-26 (log `10_45_41.ulg` e `10_54_52.ulg`), aggiornato il 2026-05-27 dopo la **diagnosi definitiva** della causa dei dropout GPS.
+>
+> Riferimenti diagnostici:
+> - [`troubleshooting-gps-dropout-2026-05-27.md`](./troubleshooting-gps-dropout-2026-05-27.md) — **diagnosi confermata** del 27/05 (causa: cavo GPS difettoso)
+> - [`troubleshooting-rtk.md`](./troubleshooting-rtk.md) — analisi forense incidente 26/05
 
-## Riepilogo del problema
+## Riepilogo del problema (aggiornato al 2026-05-27)
 
-In due voli consecutivi il modulo Here+ (NEO-M8P, firmware HPG 1.40ROV) ha smesso di pubblicare `sensor_gps` per **21.6 s** (durata identica al centesimo in entrambi i log → comportamento deterministico, non guasto meccanico stocastico).
+I dropout `sensor_gps` osservati nei voli 26/05 (singolo gap 21.6 s) e nei voli 27/05 (fino a 6 gap in 100 s, BER UART fino al 49 %) hanno la **stessa causa primaria**, ora identificata grazie all'abilitazione di `GPS_DUMP_COMM = 1` e all'analisi degli 11 log della giornata 27/05:
 
-Il dropout in sé non è l'emergenza: lo è la reazione del failsafe attualmente configurato (`mc_pos_control: Failsafe: blind land`), che mette il drone in modalità senza controllo orizzontale → deriva libera a 2-3 m/s → quasi-schianto evitato solo dall'intervento manuale del pilota (con throttle saturato a +1, picchi di corrente 47 A, magnetometro disturbato a fine volo).
+> **Causa radice**: difetto di conduzione **intermittente** nel cavo GPS auto-costruito, attivato dalle vibrazioni meccaniche durante il regime di lift dei motori.
 
-**La causa radice del dropout non è ancora confermata** (vedi `troubleshooting-rtk.md` per le ipotesi e per cosa è stato verificato sui sorgenti PX4 e sulla documentazione u-blox). Le azioni in questo documento sono divise tra: (1) modifiche che proteggono dallo schianto **a prescindere dalla causa**, (2) diagnostiche per discriminare le ipotesi residue, (3) mitigazioni precauzionali.
+Evidenze chiave (dettagli completi in [`troubleshooting-gps-dropout-2026-05-27.md`](./troubleshooting-gps-dropout-2026-05-27.md)):
+
+- Il modulo NEO-M8P-0 non perde mai il fix (sempre RTK Float a 15 sat quando pubblica).
+- PX4 non comanda mai reset al modulo (nessun `CFG-RST` trasmesso); fa solo auto-baud probing dopo timeout 800 ms.
+- Metriche RF (`noise_per_ms`, `jamming_indicator`, `agc`) costanti prima/durante/dopo i gap.
+- **BER UART modulato dal regime motori**: 0.2 % a motori in idle, fino al 49 % a motori in lift, a parità di tutto il resto.
+- BER oscillante violentemente tra voli consecutivi (0.2 % vs 49 %) con stessi parametri: firma di un **difetto meccanico intermittente** dipendente dalla geometria con cui si posa il cavo.
+
+Il dropout in sé non è l'emergenza primaria: lo è la reazione del failsafe (`mc_pos_control: Failsafe: blind land`) che mette il drone in modalità senza controllo orizzontale → deriva libera. Entrambi gli aspetti vanno corretti:
+
+1. **Sostituzione/riparazione del cavo GPS** — elimina la causa radice (sezione A0 sotto).
+2. **Riconfigurazione failsafe perdita posizione** — proteggere comunque dallo schianto in caso di dropout futuri (sezione A1).
 
 ---
 
 ## 🔴 CRITICO — da completare prima di QUALSIASI volo
+
+### A0. Cavo GPS — ricontrollo, ricostruzione, schermatura
+
+> **Causa radice identificata.** Senza questa azione il problema rimane, qualunque parametro PX4 o firmware modulo si modifichi. Vedi [`troubleshooting-gps-dropout-2026-05-27.md`](./troubleshooting-gps-dropout-2026-05-27.md) per la diagnosi.
+
+#### A0.1 Ispezione preliminare (test "wiggle")
+
+Test di continuità intermittente — l'obiettivo è riprodurre a banco il difetto che in volo si attiva con la vibrazione.
+
+- [ ] Smontare il cavo GPS dal drone (lato Pixhawk **e** lato modulo).
+- [ ] Multimetro in modalità continuità acustica (cicalino).
+- [ ] Per ciascun conduttore (TX, RX, GND, e gli altri pin di servizio): tenere i puntali sui due capi e **piegare/torcere/flettere il cavo lentamente lungo tutta la sua lunghezza**, cercando interruzioni.
+- [ ] Stessa cosa con il cavo connesso ai due connettori JST: muovere/tirare lievemente i singoli pin lato connettore — un crimping marginale si rivela come perdita di continuità sotto sollecitazione.
+- [ ] Annotare quale conduttore mostra l'interruzione e in che punto (zona connettore A, zona centrale, zona connettore B).
+
+> Se il test wiggle riproduce l'interruzione: causa confermata, procedere a A0.2.
+> Se non la riproduce: la marginalità può attivarsi solo a vibrazione di banda larga — il difetto è comunque dimostrato dai log, procedere a A0.2 indipendentemente.
+
+#### A0.2 Ricostruzione del cavo
+
+- [ ] Procurarsi materiale:
+  - **Cavo multipolare** ≥ 6 conduttori AWG 26-28, lunghezza minima necessaria (≤ 25 cm).
+  - **Treccia di schermatura** (calza in rame stagnato) o cavo già schermato di partenza.
+  - Connettori **JST-GH** del passo corretto (verificare numero pin lato Pixhawk e lato modulo NEO-M8P-0).
+  - Pin femmina pre-crimpati o crimpatrice JST-GH dedicata (le pinze generiche danneggiano il pin).
+  - Termorestringente, **drain wire** per scaricare la schermatura.
+- [ ] **Crimpare** i pin, verificarne la tenuta con tirata leggera prima dell'inserimento nell'housing JST.
+- [ ] Inserire i pin nell'housing — il click di fondo corsa deve essere netto. Test trazione su ciascun pin.
+- [ ] **Saldatura solo dove necessaria**: se si fanno giunzioni intermedie evitare saldature fredde — preparare il filo (twist + pre-stagno), applicare flux, tempo di contatto minimo con la punta calda; verificare che il pad finale sia lucido (non opaco/granuloso → indica saldatura fredda).
+- [ ] **Schermatura**: avvolgere la treccia su tutta la lunghezza utile, **collegare il drain wire al GND solo lato Pixhawk** (single-ended) per evitare ground-loop.
+- [ ] Termorestringente sopra alla schermatura per protezione meccanica e fissaggio.
+
+#### A0.3 Test di accettazione del nuovo cavo (a banco, eliche RIMOSSE)
+
+> Replicare la condizione discriminante del log `13_50_41` vs `13_50_52`: stesso drone, motori prima in idle poi in regime di lift, monitorando il BER UART tramite il dump GPS.
+
+- [ ] Mantenere `GPS_DUMP_COMM = 1`.
+- [ ] Drone all'aperto, fix GPS acquisito, armato in POSCTL.
+- [ ] **Fase 1 — idle, 60 s**: motori al minimo (post-arming, senza throttle).
+- [ ] **Fase 2 — regime lift, 60 s**: throttle ~50 % (eliche rimosse, regime equivalente a hover) — drone fissato/zavorrato.
+- [ ] **Fase 3 — torsione del cavo, 60 s**: mantenendo regime lift, applicare manualmente piegature/torsioni controllate al cavo per replicare il test wiggle in dinamica.
+- [ ] Disarmare. Estrarre il `.ulg` ed eseguire l'analisi `gps_dump`:
+
+```bash
+python3 plot/info_log.py log/<data>/<orario>.ulg   # (oppure script analogo)
+# verificare: garbage_pct < 0.5%, CRC fail = 0, NAV-PVT rate ≥ 4.9 Hz, 0 reinit driver
+```
+
+**Esito atteso (cavo OK):** garbage RX < 0.5 %, zero reinit del driver, NAV-PVT a 5 Hz in tutte le 3 fasi. Se anche solo una fase mostra BER > 1 %, il cavo va rifatto.
+
+#### A0.4 Instradamento e fissaggio
+
+- [ ] Cavo GPS instradato sul lato **opposto** del telaio rispetto ai fasci ESC-motore (separazione fisica ≥ 5 cm dove possibile).
+- [ ] Nessun loop libero che possa muoversi in volo → fissare con fascette dolci o velcro a punti strutturali del frame.
+- [ ] Connettore JST sul Pixhawk: **hot-glue** a basso volume sul corpo del connettore per impedire micro-spostamenti da vibrazione.
+- [ ] Stessa cosa lato modulo se il connettore è esposto a vibrazione del mast.
+
+#### A0.5 Volo di accettazione
+
+- [ ] Volo breve (3-5 min) in POSCTL, hover line-of-sight, pilota pronto allo switch in STABILIZED.
+- [ ] Mantenere `GPS_DUMP_COMM = 1` per validazione.
+- [ ] Analisi `.ulg` post-volo: garbage RX < 1 %, zero reinit driver, nessun gap `sensor_gps` > 2 s.
+- [ ] **Solo dopo questo volo OK**: il cavo è considerato a posto e si può tornare ad attività operative.
+
+---
 
 ### A1. Riconfigurazione failsafe perdita posizione
 
@@ -105,50 +185,27 @@ QGC → Vehicle Setup → **Flight Behavior** espone tre slider che sono **macro
 
 ---
 
-### A2. Abilitare GPS_DUMP_COMM per il prossimo volo
+### A2. ~~Abilitare GPS_DUMP_COMM per il prossimo volo~~ ✅ COMPLETATO — diagnosi raggiunta
 
-> Senza il dump UART grezzo del prossimo dropout, ogni ipotesi sulla causa resta speculativa. Questa è la diagnostica più importante.
+> `GPS_DUMP_COMM = 1` è stato abilitato il 2026-05-27 e ha permesso di identificare la causa primaria. Il dump va **mantenuto attivo** anche nei test del nuovo cavo (sezione A0.3, A0.5) per validare quantitativamente il BER UART.
 
-**Parametro:**
-
-- `GPS_DUMP_COMM = Full communication` (in QGC l'opzione è presentata con il nome, non con un valore numerico) — registra nei file `gps_dump_*.bin` sulla SD tutto il traffico UART in entrambe le direzioni
-
-**Procedura:**
-
-1. [x] In QGC → Parameters → filtro `GPS_DUMP_COMM` → impostato a `Full communication` (2026-05-27)
-2. [ ] Verificare che la SD card abbia almeno 500 MB liberi (il dump genera ~1-2 MB/min)
-3. [ ] Volare normalmente (con failsafe già riconfigurato come A1)
-4. [ ] Al prossimo dropout: estrarre i file dump dalla SD **prima che vengano sovrascritti**
-5. [ ] Aprire i dump con [PX4 GPS log analysis tools](https://github.com/PX4/PX4-GPSDrivers) o convertire in formato leggibile da u-center
-
-**Cosa cercare nel dump al momento del gap:**
-
-- Il modulo smette di trasmettere completamente? → ipotesi watchdog interno u-blox
-- Trasmette ma con frame corrotti / desincronizzati? → ipotesi parser desync / saturazione UART
-- C'è qualcosa di anomalo nella RTCM in ingresso pochi secondi prima del gap? → ipotesi RTCM malformata che mette il modulo in stato anomalo
+- [x] `GPS_DUMP_COMM = 1` impostato (Full communication, RX+TX)
+- [x] Analisi degli 11 log della giornata 27/05 completata → causa identificata nel cavo GPS
+- [x] Documento diagnostico [`troubleshooting-gps-dropout-2026-05-27.md`](./troubleshooting-gps-dropout-2026-05-27.md) prodotto
+- [ ] **Mantenere `GPS_DUMP_COMM = 1` attivo fino alla validazione del nuovo cavo** (A0.5 OK)
+- [ ] Solo dopo validazione del cavo, **disabilitare** (`GPS_DUMP_COMM = 0`) per alleggerire il logging in operativo
 
 ---
 
-### A3. Volo di test con RTCM disabilitato (diagnostico)
+### A3. ~~Volo di test con RTCM disabilitato (diagnostico)~~ ⊘ NON PIÙ NECESSARIO
 
-> Test diagnostico per isolare se il dropout dipende dal flusso RTCM in ingresso.
-
-**Procedura:**
-
-1. [ ] In QGC → Application Settings → General → RTK GPS → **disattivare** "Use RTK"
-2. [ ] Volare lo stesso profilo missione (ovviamente senza pretese di precisione RTK Fixed; il modulo opererà in 3D normale)
-3. [ ] Tenere `GPS_DUMP_COMM = 3` per registrare il flusso
-4. [ ] Durata test: almeno 10 minuti per replicare le condizioni dei voli incidente
-5. [ ] Riattivare RTK per i voli operativi
-
-**Interpretazione:**
-
-- Se **nessun dropout** in 10 min senza RTCM → conferma forte che la causa è legata al flusso RTCM (firmware HPG 1.40 + RTCM, oppure saturazione UART da PVT + RTCM)
-- Se **dropout presente** anche senza RTCM → causa altrove (watchdog interno indipendente da RTCM, problema HW)
+> Era un test per discriminare l'ipotesi "il flusso RTCM mette il modulo in stato anomalo". La diagnosi del 27/05 ha escluso questa ipotesi: il problema è fisico, sul cavo, non sul protocollo. **Saltare questa azione.**
 
 ---
 
 ## 🟡 IMPORTANTE — mitigazioni precauzionali
+
+> **Nota dopo diagnosi del 27/05**: le azioni B1, B2, B3 erano state pianificate quando la causa radice non era ancora identificata e si sospettava un problema firmware/protocollo. Ora che la causa è confermata nel cavo (A0), queste azioni **non sono più necessarie per risolvere i dropout**; restano però buone pratiche di igiene/aggiornamento e vanno eseguite quando comodo, **non bloccanti per i prossimi voli**.
 
 ### B1. Aggiornamento firmware u-blox: HPG 1.40 → HPG 1.43
 
@@ -244,25 +301,17 @@ Il driver `gps` di PX4 ha avuto multipli fix sulla gestione errori UBX nelle rel
 
 ## 🟢 IGIENICO — da fare per esclusione, costo trascurabile
 
-### C1. Ispezione meccanica connettori GPS
+### C1. ~~Ispezione meccanica connettori GPS~~ → assorbito in A0
 
-> Probabilità di causa scartata dai dati (la durata fissa 21.6 s del gap esclude un connettore intermittente, che avrebbe durate stocastiche), ma l'ispezione costa nulla.
-
-- [ ] Estrarre il connettore JST-GH 10 pin del cavo GPS lato Pixhawk 6X
-- [ ] Verificare crimping pin per pin (continuità + assenza di gioco con tester)
-- [ ] Reinserire fino al click
-- [ ] **Hot-glue** sul connettore per immobilizzarlo (anti-vibrazione)
-- [ ] Stessa procedura sul connettore lato modulo Here+ se accessibile
+> Le attività di questa sezione sono ora **incorporate** nella ricostruzione del cavo (A0). L'hot-glue dei connettori è in A0.4.
 
 ---
 
-### C2. Mitigazioni EMI (preventive)
+### C2. ~~Mitigazioni EMI (preventive)~~ → schermatura assorbita in A0, separazione fisica in A0.4
 
-I dati hanno escluso EMI come causa scatenante (vedi `troubleshooting-rtk.md`), ma restano buone pratiche di igiene EM:
+> La schermatura del cavo (treccia + drain wire) è in A0.2; la separazione fisica dai cavi motore è in A0.4. Ferrite clip resta opzionale come ulteriore protezione, da valutare solo se il volo di accettazione A0.5 mostra ancora margini bassi.
 
-- [ ] **Ferrite clip** sul cavo GPS in prossimità del connettore Pixhawk
-- [ ] Verificare **separazione fisica** cavo GPS ↔ cavi fase motore (lato opposto del frame se possibile)
-- [ ] Valutare cavo GPS **schermato** (treccia metallica + drain wire collegato a GND Pixhawk)
+- [ ] (Opzionale) **Ferrite clip** sul cavo GPS in prossimità del connettore Pixhawk — solo se A0.5 mostra BER residuo > 0.5 % a regime di lift.
 
 ---
 
@@ -285,20 +334,20 @@ Il NEO-M8P è EOL (end-of-life) dal 2023 (l'ultimo firmware risale a gennaio 202
 
 ## Procedura di volo dopo le modifiche
 
-Dopo aver completato almeno la sezione 🔴:
+Dopo aver completato A0 (cavo) e A1 (failsafe):
 
-1. [ ] **Test parametri**: ripetere A1 step di verifica (alluminio sull'antenna a terra)
-2. [ ] **Verificare GPS_DUMP_COMM = 3** attivo
-3. [ ] **Test motori a terra**: B4 (5 minuti) — verificare nessun dropout
-4. [ ] **Primo volo di verifica**: hover manuale (POSCTL) in line-of-sight, breve (~1 min), pilota pronto a switch in STABILIZED
-5. [ ] **Volo diagnostico A3** (RTCM disabilitato): missione semplice in AUTO, 10 min, line-of-sight
-6. [ ] **Solo dopo successo**: tornare a missioni con landing autonomo e RTK attivo
+1. [ ] **Test wiggle + accettazione cavo a banco** (A0.1, A0.3) — verifica BER UART < 0.5 % a regime di lift
+2. [ ] **Test parametri failsafe**: ripetere A1 step di verifica (alluminio sull'antenna a terra)
+3. [ ] **Verificare GPS_DUMP_COMM = 1** attivo durante i voli di validazione
+4. [ ] **Volo di accettazione cavo** (A0.5): hover manuale (POSCTL) in line-of-sight, 3-5 min, pilota pronto a switch in STABILIZED
+5. [ ] **Solo dopo successo A0.5**: tornare a missioni con landing autonomo e RTK attivo
+6. [ ] Una volta validato il cavo: **disabilitare** `GPS_DUMP_COMM = 0` per i voli operativi
 
 Per ogni volo di verifica, analizzare il `.ulg` con script in `plot/` per confermare:
-- Nessun gap in `sensor_gps.timestamp`
+- Nessun gap in `sensor_gps.timestamp` > 2 s
 - `pos_horiz_accuracy` resta sotto 1 m per tutta la missione
-- Nessun reset driver nei `logged_messages`
-- Se possibile, analizzare anche i file `gps_dump_*.bin` con u-center per ispezionare il flusso UART
+- Nessun reset driver nei `logged_messages` (assenza di "u-blox firmware version" durante il volo)
+- Analisi `gps_dump`: garbage RX < 0.5 %, CRC fail = 0, NAV-PVT rate ≈ 5 Hz
 
 ---
 
@@ -306,31 +355,39 @@ Per ogni volo di verifica, analizzare il `.ulg` con script in `plot/` per confer
 
 | # | Azione | Priorità | Stato |
 |---|---|---|---|
+| **A0.1** | **Test wiggle multimetro su cavo GPS attuale** | 🔴 | **[ ]** |
+| **A0.2** | **Ricostruzione cavo GPS con schermatura (treccia + drain wire)** | 🔴 | **[ ]** |
+| **A0.3** | **Test a banco nuovo cavo: idle + lift + torsione, verifica BER < 0.5%** | 🔴 | **[ ]** |
+| **A0.4** | **Instradamento + hot-glue connettori + separazione cavi motore** | 🔴 | **[ ]** |
+| **A0.5** | **Volo di accettazione 3-5 min, verifica zero reinit driver** | 🔴 | **[ ]** |
 | A1 | Modifica parametri failsafe (EKF2_NOAID_TOUT, COM_POSCTL_NAVL, COM_POS_FS_EPH) + limiti velocità/tilt | 🔴 | [x] 2026-05-27 |
 | A1-bis | Flight Behavior sliders: Responsiveness 0.5, Horizontal Vel 3 m/s, Vertical Vel 1 m/s | 🔴 | [x] 2026-05-27 |
 | A1.test | Test a terra con antenna coperta — verificare comportamento a t=10s | 🔴 | [ ] |
-| A2 | Abilitare `GPS_DUMP_COMM = Full communication` | 🔴 | [x] 2026-05-27 |
+| A2 | Abilitare `GPS_DUMP_COMM = Full communication` + analisi dump | 🔴 | [x] 2026-05-27 (diagnosi raggiunta) |
 | A2.bis | Verificare ≥500 MB liberi sulla SD del Pixhawk | 🔴 | [ ] |
-| A3 | Volo di test con RTCM disabilitato (diagnostico) | 🔴 | [ ] |
+| A3 | ~~Volo di test con RTCM disabilitato~~ | ⊘ | obsoleto (diagnosi raggiunta) |
 | A4 | Briefing pilota: switch in STABILIZED se vede deriva/perdita quota | 🔴 | [ ] |
 | A5 | Export parametri in `maintenance/profili-parametri/volo-2026-05-27.params` | 🔴 | [ ] |
-| B1 | Aggiornamento firmware u-blox HPG 1.40 → **1.43** | 🟡 | [ ] |
-| B2 | Alzare baud-rate UART GPS a 115200 | 🟡 | [ ] |
-| B3 | Aggiornamento PX4 alla release stable corrente | 🟡 | [ ] |
-| B4 | Stress test 5 min motori armati a terra | 🟡 | [ ] |
-| C1 | Ispezione + hot-glue connettori GPS | 🟢 | [ ] |
-| C2 | Ferrite clip + separazione fisica cavi | 🟢 | [ ] |
-| D1 | Installazione secondo GPS M9N (GPS2) | 🟢 | [ ] |
-| D2 | Pianificazione upgrade a ZED-F9P | 🟢 | [ ] |
+| B1 | Aggiornamento firmware u-blox HPG 1.40 → **1.43** | 🟡 | [ ] non bloccante (era ipotesi falsificata) |
+| B2 | Alzare baud-rate UART GPS a 115200 | 🟡 | [ ] non bloccante |
+| B3 | Aggiornamento PX4 alla release stable corrente | 🟡 | [ ] non bloccante |
+| B4 | Stress test 5 min motori armati a terra | 🟡 | [ ] (sovrapponibile a A0.3) |
+| C1 | ~~Ispezione + hot-glue connettori GPS~~ | ⊘ | assorbito in A0.4 |
+| C2 | ~~Ferrite clip + separazione fisica cavi~~ | ⊘ | schermatura in A0.2, separazione in A0.4 |
+| D1 | Installazione secondo GPS M9N (GPS2) | 🟢 | [ ] ridondanza per sicurezza futura |
+| D2 | Pianificazione upgrade a ZED-F9P | 🟢 | [ ] lungo termine |
 
 ---
 
 ## Riferimenti
 
-- [`troubleshooting-rtk.md`](./troubleshooting-rtk.md) — diagnosi completa con timeline e analisi quantitativa dei due log incidente
+- [`troubleshooting-gps-dropout-2026-05-27.md`](./troubleshooting-gps-dropout-2026-05-27.md) — **diagnosi completa** del 27/05 con analisi di tutti gli 11 log della giornata e identificazione del cavo come causa radice
+- [`troubleshooting-rtk.md`](./troubleshooting-rtk.md) — analisi forense incidente 2026-05-26 (compatibile con la nuova diagnosi)
+- [`troubleshooting-gps-pixhawk6x.md`](./troubleshooting-gps-pixhawk6x.md) — problemi GPS precedenti (riconoscimento modulo, configurazione GPS_1_CONFIG)
 - [`test-a-banco.md`](./test-a-banco.md) — procedure di sicurezza per test indoor con bypass arming
 - [`stato-lavori.md`](./stato-lavori.md) — tracking generale delle attività di commissioning
-- Log analizzati: `log/2026-05-26/10_45_41.ulg`, `log/2026-05-26/10_54_52.ulg`
+- Log analizzati 2026-05-26: `10_45_41.ulg`, `10_54_52.ulg`
+- Log analizzati 2026-05-27: tutti gli 11 voli (`13_40_57.ulg` … `14_15_52.ulg`)
 
 ### Fonti verificate
 

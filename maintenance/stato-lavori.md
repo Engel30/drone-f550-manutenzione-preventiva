@@ -2,7 +2,7 @@
 
 > Indice delle attività di commissioning e dei thread aperti per la fase di acquisizione dati e analisi di manutenzione preventiva.
 >
-> Ultimo aggiornamento: 2026-05-27 dopo incidente RTK del 2026-05-26.
+> Ultimo aggiornamento: 2026-05-27 dopo la **diagnosi definitiva** dei dropout GPS (cavo difettoso, vedi `troubleshooting-gps-dropout-2026-05-27.md`).
 
 ## Completato
 
@@ -31,22 +31,34 @@
 - [x] **Verifica delle ipotesi di causa** sui sorgenti PX4 ufficiali e sulle release notes u-blox: il "bug HPG 1.40 documentato" inizialmente assunto **non risulta** dalle fonti ufficiali (vedi `troubleshooting-rtk.md`).
 - [x] **Checklist correttiva post-incidente** — `azioni-pre-prossimo-volo.md`, prerequisito per qualsiasi volo successivo.
 
+### Diagnosi definitiva dropout GPS — 2026-05-27
+
+- [x] **Sostituzione Pixhawk 6X + cavo GPS auto-costruito** prima delle prove del 27/05 (introdotti come variazione hardware rispetto al log del 27/04).
+- [x] **Abilitazione `GPS_DUMP_COMM = 1`** prima dei voli, per registrare il flusso UART raw nel topic `gps_dump`.
+- [x] **Analisi di tutti gli 11 voli della giornata 27/05** (`13_40_57.ulg` … `14_15_52.ulg`) con parsing UBX dei due bytestream (RX modulo→FC, TX FC→modulo).
+- [x] **Causa radice identificata**: difetto di conduzione intermittente nel cavo GPS, attivato dalle vibrazioni del regime di lift motori. Documentato in `troubleshooting-gps-dropout-2026-05-27.md`.
+- [x] **Ipotesi alternative falsificate**: perdita di portante GPS, EMI motori, brownout 5 V, reset comandato da PX4, firmware u-blox, baud rate. Tutte escluse dai dati.
+- [x] **Aggiornamento documenti correlati**: `azioni-pre-prossimo-volo.md` con la nuova sezione A0 (cavo); cross-reference in `troubleshooting-rtk.md` e `troubleshooting-gps-pixhawk6x.md`.
+
 ## In sospeso
 
 ### 🔴 Bloccante: pre-prossimo volo
 
-Tutti gli item in `azioni-pre-prossimo-volo.md` sezione 🔴 sono **bloccanti**. In sintesi:
+Tutti gli item in `azioni-pre-prossimo-volo.md` sezione 🔴 sono **bloccanti**. In sintesi (priorità ora dominata dal cavo):
 
-- [ ] Riconfigurazione failsafe perdita posizione (`COM_POS_FS_*`, `COM_POSCTL_NAVL`)
-- [ ] Abilitazione `GPS_DUMP_COMM = 3` per diagnostica del prossimo dropout
-- [ ] Volo di test con RTCM disabilitato (diagnostico)
+- [ ] **A0 — Cavo GPS**: test wiggle, ricostruzione con schermatura, test di accettazione a banco, instradamento+hot-glue, volo di accettazione (vedi A0.1-A0.5).
+- [ ] Riconfigurazione failsafe perdita posizione (`COM_POS_FS_*`, `COM_POSCTL_NAVL`) — *in gran parte già applicata il 27/05*.
+- [x] ~~Abilitazione `GPS_DUMP_COMM = 1`~~ — fatto, ha portato alla diagnosi.
+- [ ] Mantenere `GPS_DUMP_COMM = 1` attivo fino a validazione del nuovo cavo (A0.5 OK).
 
-### Mitigazioni RTK (priorità 🟡)
+### Mitigazioni RTK (priorità 🟡 — non più bloccanti dopo diagnosi cavo)
+
+> Queste azioni erano nate dall'ipotesi (poi falsificata) che la causa fosse software/firmware. Restano utili come **igiene** ma non sono più legate al problema dei dropout.
 
 - [ ] Aggiornamento firmware u-blox NEO-M8P: HPG 1.40 → **HPG 1.43** (ultima release ufficiale, gennaio 2022)
 - [ ] Alzare baud-rate UART GPS da 38400 a 115200
 - [ ] Aggiornamento PX4 alla release stable corrente
-- [ ] Stress test 5 min motori armati a terra (replicare condizioni di volo senza eliche)
+- [ ] Stress test 5 min motori armati a terra (sovrapponibile a A0.3, test di accettazione cavo)
 
 ### Acquisizione dati di routine
 
@@ -90,9 +102,9 @@ Tutti gli item in `azioni-pre-prossimo-volo.md` sezione 🔴 sono **bloccanti**.
 - Capitolo metodologia: descrizione del workflow "volo → SD → PlotJuggler/Python → trend longitudinale"
 - Capitolo FMEA: tabella modi di guasto vs grandezze loggate
   - Squilibrio elica → picco FFT a frequenza di rotazione
-  - **Dropout UART GPS → EKF dead-reckoning → failsafe blind-land in ALTCTL → deriva orizzontale incontrollata** (nuovo dopo incidente 2026-05-26)
+  - **Cavo GPS intermittente sotto vibrazione → BER UART crescente → parser u-blox desync → driver auto-baud probe → gap `sensor_gps` 7-49 s → EKF dead-reckoning → failsafe blind-land** (nuovo dopo diagnosi 2026-05-27)
   - Survey-in base RTK non converge → degradazione posizione → abort missione in landing
-- Capitolo "case study": analisi forense dell'incidente RTK 2026-05-26 come esempio di metodologia diagnostica basata su dati di log
+- Capitolo "case study": analisi forense dell'incidente RTK 2026-05-26 e diagnosi del cavo GPS del 2026-05-27 come esempio di metodologia diagnostica basata su dati di log e strumentazione del bus seriale (`GPS_DUMP_COMM`)
 - Appendice: configurazione completa parametri PX4 utilizzata, con diff rispetto al default
 
 ## File documentazione attuali
@@ -102,6 +114,7 @@ Tutti gli item in `azioni-pre-prossimo-volo.md` sezione 🔴 sono **bloccanti**.
 - `test-a-banco.md` — procedura di test indoor con bypass arming
 - `troubleshooting-gps-pixhawk6x.md` — problemi GPS preesistenti (riconoscimento modulo, no-fix iniziale)
 - `troubleshooting-rtk.md` — diagnosi RTK (survey-in + dropout `sensor_gps`); analisi forense incidente 2026-05-26
+- `troubleshooting-gps-dropout-2026-05-27.md` — **diagnosi definitiva** dei dropout GPS via dump UART (causa: cavo)
 - `azioni-pre-prossimo-volo.md` — checklist correttiva post-incidente, prerequisito per qualsiasi volo successivo
 - `troubleshooting-cube-black-usb.md` — storico Cube Black (preesistente)
 - `telemetria-esc.md` — storico telemetria ESC su Cube Black (da rivalutare)
