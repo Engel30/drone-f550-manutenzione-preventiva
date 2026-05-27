@@ -18,37 +18,90 @@ Il dropout in sé non è l'emergenza: lo è la reazione del failsafe attualmente
 
 ### A1. Riconfigurazione failsafe perdita posizione
 
-> ⚠️ Questa è la modifica che da sola, indipendentemente dalla causa del dropout, **impedisce che si ripeta lo scenario di quasi-schianto**.
+> ⚠️ **Correzione importante rispetto a versioni precedenti del documento**: durante l'applicazione abbiamo scoperto che `COM_POSCTL_NAVL` **era già a `Altitude`** prima degli incidenti, eppure il blind-land è scattato. Il vero gating è `EKF2_NOAID_TOUT` (livello EKF), non i parametri commander. Vedi sezione "Architettura failsafe a due livelli" in [`troubleshooting-rtk.md`](./troubleshooting-rtk.md) per la spiegazione completa.
 
-**Parametri PX4 da modificare** (riferimento: [PX4 Safety/Failsafe params](https://docs.px4.io/main/en/config/safety.html)):
+**Parametri PX4 — configurazione applicata 2026-05-27:**
 
-| Parametro | Default attuale | Nuovo valore | Motivazione |
+| Parametro | Default | Applicato | Motivazione |
 |---|---|---|---|
-| `COM_POS_FS_DELAY` | 1 s | **20 s** | Copre la durata del gap GPS noto (21.6 s). PX4 mantiene posizione via dead-reckoning invece di triggerare il failsafe |
-| `COM_POS_FS_EPH` | 5 m | **25 m** | Durante dead-reckoning l'EKF arriva a `pos_horiz_accuracy=21 m` prima del recupero spontaneo. Soglia 5 m è troppo aggressiva |
-| `COM_POS_FS_EPV` | 10 m | **15 m** | Stesso ragionamento per la verticale |
-| `COM_POSCTL_NAVL` | 1 (Land) | **0 (Altitude/Manual)** | In caso di perdita posizione, il pilota mantiene il controllo via stick anziché blind-land |
-| `COM_POS_FS_GAIN` | 10 | (lasciare 10) | Moltiplicatore di tolleranza, ok |
+| `EKF2_NOAID_TOUT` | 5000000 μs (5 s) | **10000000 μs (10 s)** | Cap firmware. Ritarda la dichiarazione `xy_valid=false` da parte dell'EKF, che è la vera causa del blind-land di `mc_pos_control` |
+| `COM_POSCTL_NAVL` | Land (1) | **Altitude (0)** | Era già a Altitude. Se il commander gestisce il failsafe prima di `mc_pos_control`, il pilota ha stick attivi |
+| `COM_POS_FS_EPH` | 5 m | **10 m** | Soglia accuracy orizzontale failsafe commander |
+| `MPC_VEL_MANUAL` | 10 m/s | **5 m/s** | Velocità max comandabile via stick in POSCTL → meno inerzia durante eventuale deriva |
+| `MPC_XY_VEL_MAX` | 12 m/s | **5 m/s** | Cap globale velocità orizzontale |
+| `MPC_XY_CRUISE` | 5 m/s | **3 m/s** | Velocità crociera missioni AUTO |
+| `MPC_TILTMAX_AIR` | 45° | **25°** | Limita tilt → migliora stabilità + riduce velocità massima raggiungibile |
 
-**Procedura in QGC:**
+**Parametri non disponibili / non modificabili in questa build PX4:**
+
+| Parametro | Stato | Note |
+|---|---|---|
+| `COM_POS_FS_DELAY` | Non esiste | Nei docs PX4 main ma non in questa firmware |
+| `COM_POS_FS_EPV` | Non esiste | Idem |
+| `MPC_ACC_HOR` | Auto-derivato | Calcolato da PX4 in base a velocità/tilt; valore mostrato non modificabile |
+| `MPC_JERK_MAX` | Auto-vincolato (33) | Sistema trajectory shaping clampa al minimo feasibile |
+| `MPC_JERK_AUTO` | Auto-vincolato (16) | Stesso |
+
+**Procedura applicata in QGC:**
 
 1. QGC → Vehicle Setup → **Parameters**
-2. Filtro: `COM_POS_FS_` → modificare DELAY, EPH, EPV come da tabella
-3. Filtro: `COM_POSCTL_NAVL` → impostare a `0`
-4. Click **Save** in basso a destra
-5. Riavviare il Pixhawk (toggle USB o ricicla potenza)
-6. Esportare i parametri post-modifica in `maintenance/profili-parametri/volo.params` (vedi TODO in `stato-lavori.md`)
+2. Per ogni parametro nella tabella: filtra il nome, modifica valore, **Save**
+3. Verifica che il valore salvato corrisponda (alcuni parametri ritornano al valore precedente: significa auto-vincolo, vedi tabella sopra)
+4. Riavviare il Pixhawk (toggle USB o ricicla potenza)
+5. Esportare i parametri post-modifica:
+   - QGC → Tools → **Save Parameters to File**
+   - Salvare in `maintenance/profili-parametri/volo-2026-05-27.params`
 
 **Test obbligatorio di verifica (a terra, eliche RIMOSSE):**
 
-- [ ] Armare il drone in POSCTL
+- [ ] Armare il drone in POSCTL (richiede fix GPS — aspettare che arrivi)
+- [ ] Avviare cronometro
 - [ ] Coprire l'antenna GPS con un foglio di alluminio (simula perdita fix)
-- [ ] Cronometrare: PX4 non deve triggerare blind-land prima di **20 s**
-- [ ] Dopo 20 s deve passare a Altitude mode con sticks attivi e responsive
-- [ ] Rimuovere l'alluminio: il fix deve recuperare e tornare a POSCTL
+- [ ] Osservare in QGC e annotare:
+  - [ ] A che tempo appare il primo messaggio anomalo (`invalid setpoints`, cambio nav_state, failsafe activated)?
+  - [ ] Il drone passa in **Altitude** (stick orizzontali attivi) o in **blind-land** (discesa verticale senza controllo orizzontale)?
+  - [ ] Lo stick orizzontale risponde dopo il cambio modalità?
+- [ ] Rimuovere l'alluminio dopo ~30 s
+- [ ] Verificare che torni in POSCTL automaticamente
 - [ ] Disarmare
 
-> ⚠️ Se il test fallisce (blind-land prima di 20 s), NON volare. I parametri non sono stati applicati correttamente.
+**Esito atteso:** failsafe scatta attorno a **t = 10 s** (era ~3-5 s prima). Idealmente passa in Altitude con stick attivi. Se invece scatta blind-land, è la conferma che `mc_pos_control` vince la race condition contro il commander — vedi mitigazioni residue sotto.
+
+**Mitigazioni residue se il test conferma blind-land a t=10s:**
+
+- Briefing pilota: **flippare in STABILIZED dal radiocomando** appena si vede perdita di quota o deriva anomala. STABILIZED bypassa `mc_pos_control` e dà controllo manuale puro, ignorando lo stack position controller (e quindi anche tutti i limiti di velocità/tilt configurati).
+- Con `MPC_XY_VEL_MAX ≈ 3` e `MPC_TILTMAX_AIR = 25`, la deriva orizzontale durante gli 11.6 s di blind-land scoperti scende a max ~35 m (vs ~58 m con velocità 5 m/s, vs ~115 m col default 10 m/s).
+
+---
+
+### A1-bis. Configurazione Flight Behavior sliders (QGC)
+
+QGC → Vehicle Setup → **Flight Behavior** espone tre slider che sono **macro** sui parametri MPC: spostandoli si modificano simultaneamente più parametri di basso livello in modo coerente (e auto-vincolato — è il motivo per cui parametri come `MPC_JERK_MAX` e `MPC_ACC_HOR` non si lasciano modificare manualmente).
+
+**Configurazione applicata (2026-05-27):**
+
+| Slider | Valore | Parametri governati | Motivazione |
+|---|---|---|---|
+| **Responsiveness** | **0.5** (Medium) | `MPC_ACC_HOR_MAX`, `MPC_ACC_UP/DOWN_MAX`, `MPC_JERK_MAX`, `MPC_JERK_AUTO` | Compromesso tra reattività e prevedibilità. Responsiveness più alta (era 0.8) aumenta il rischio di PIO con pilota in training |
+| **Horizontal Velocity** | **3 m/s** | `MPC_XY_VEL_MAX`, `MPC_XY_CRUISE` (probabilmente anche `MPC_VEL_MANUAL`) | Cap conservativo per F550 in fase test. Riduce la deriva massima durante i ~11.6 s di blind-land scoperti |
+| **Vertical Velocity** | **1 m/s** | `MPC_Z_VEL_MAX_UP`, `MPC_Z_VEL_MAX_DN` | Sotto soglia Vortex Ring State (~2-3 m/s). Atterraggi più lenti → più tempo per intervento pilota |
+
+**Quando sono attivi:** dovunque sia attivo il position controller — **POSCTL** (manuale con position hold), **ALTCTL** (parziale, solo Vertical Velocity e Responsiveness asse Z), **AUTO_*** (tutte le missioni).
+
+**Quando NON sono attivi:** **MANUAL**, **ACRO**, **STABILIZED**. Il pilota in STABILIZED bypassa l'intero stack — è la rete di sicurezza per il recupero in emergenza.
+
+**Considerazione sul recupero in emergenza:**
+
+> Una preoccupazione naturale è "responsiveness 0.5 rende lento il drone se devo recuperarlo da una situazione critica". La risposta è no, perché:
+> 1. Il recupero in emergenza si fa in **STABILIZED**, non in POSCTL → lo slider non si applica
+> 2. Responsiveness alta è **statisticamente più PIO-prone** (Pilot-Induced Oscillation) — esattamente quello che ha causato i picchi 47 A negli incidenti precedenti
+> 3. A 0.5 il drone raggiunge max accelerazione in ~0.4 s — adeguato per evasioni a 5-10 m, e per ostacoli più vicini nessuna configurazione di slider è sufficiente
+
+**Verifica post-configurazione:**
+
+- [ ] In Parameters → filtra `MPC_XY_VEL_MAX` e verifica valore ≈ 3
+- [ ] In Parameters → filtra `MPC_Z_VEL_MAX_UP` e `MPC_Z_VEL_MAX_DN` → verificare ≈ 1
+- [ ] In Parameters → filtra `MPC_JERK_MAX` e `MPC_JERK_AUTO` → annotare i valori auto-calcolati (per documentare nel `.params` esportato)
 
 ---
 
@@ -58,14 +111,14 @@ Il dropout in sé non è l'emergenza: lo è la reazione del failsafe attualmente
 
 **Parametro:**
 
-- `GPS_DUMP_COMM = 3` (Both / RX + TX) — registra nei file `gps_dump_*.bin` sulla SD tutto il traffico UART in entrambe le direzioni
+- `GPS_DUMP_COMM = Full communication` (in QGC l'opzione è presentata con il nome, non con un valore numerico) — registra nei file `gps_dump_*.bin` sulla SD tutto il traffico UART in entrambe le direzioni
 
 **Procedura:**
 
-1. [ ] In QGC → Parameters → filtro `GPS_DUMP_COMM` → impostare a `3`
+1. [x] In QGC → Parameters → filtro `GPS_DUMP_COMM` → impostato a `Full communication` (2026-05-27)
 2. [ ] Verificare che la SD card abbia almeno 500 MB liberi (il dump genera ~1-2 MB/min)
 3. [ ] Volare normalmente (con failsafe già riconfigurato come A1)
-4. [ ] Al prossimo dropout: estrarre i file dump dalla SD
+4. [ ] Al prossimo dropout: estrarre i file dump dalla SD **prima che vengano sovrascritti**
 5. [ ] Aprire i dump con [PX4 GPS log analysis tools](https://github.com/PX4/PX4-GPSDrivers) o convertire in formato leggibile da u-center
 
 **Cosa cercare nel dump al momento del gap:**
@@ -253,10 +306,14 @@ Per ogni volo di verifica, analizzare il `.ulg` con script in `plot/` per confer
 
 | # | Azione | Priorità | Stato |
 |---|---|---|---|
-| A1 | Modifica parametri failsafe (COM_POS_FS_*, COM_POSCTL_NAVL) | 🔴 | [ ] |
-| A1.test | Test a terra con antenna coperta | 🔴 | [ ] |
-| A2 | Abilitare `GPS_DUMP_COMM = 3` | 🔴 | [ ] |
+| A1 | Modifica parametri failsafe (EKF2_NOAID_TOUT, COM_POSCTL_NAVL, COM_POS_FS_EPH) + limiti velocità/tilt | 🔴 | [x] 2026-05-27 |
+| A1-bis | Flight Behavior sliders: Responsiveness 0.5, Horizontal Vel 3 m/s, Vertical Vel 1 m/s | 🔴 | [x] 2026-05-27 |
+| A1.test | Test a terra con antenna coperta — verificare comportamento a t=10s | 🔴 | [ ] |
+| A2 | Abilitare `GPS_DUMP_COMM = Full communication` | 🔴 | [x] 2026-05-27 |
+| A2.bis | Verificare ≥500 MB liberi sulla SD del Pixhawk | 🔴 | [ ] |
 | A3 | Volo di test con RTCM disabilitato (diagnostico) | 🔴 | [ ] |
+| A4 | Briefing pilota: switch in STABILIZED se vede deriva/perdita quota | 🔴 | [ ] |
+| A5 | Export parametri in `maintenance/profili-parametri/volo-2026-05-27.params` | 🔴 | [ ] |
 | B1 | Aggiornamento firmware u-blox HPG 1.40 → **1.43** | 🟡 | [ ] |
 | B2 | Alzare baud-rate UART GPS a 115200 | 🟡 | [ ] |
 | B3 | Aggiornamento PX4 alla release stable corrente | 🟡 | [ ] |

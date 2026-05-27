@@ -182,11 +182,33 @@ Conclusione: la frase *"HPG 1.40 ha bug documentati di PVT output stall in RTK F
 
 ### Perché questo guasto ha quasi fatto schiantare il drone
 
-Il **dropout GPS in sé non è l'emergenza**. L'emergenza l'ha creata la **logica di failsafe scelta**:
+Il **dropout GPS in sé non è l'emergenza**. L'emergenza l'ha creata la **logica di failsafe**:
 
-1. PX4 ha triggerato `mc_pos_control: invalid setpoints` quando `pos_horiz_accuracy` ha superato ~1 m (3-5 s dopo l'inizio del gap).
-2. L'azione di failsafe configurata era `blind land` → in `10_54_52` ha messo il drone in **ALTCTL**, in `10_45_41` ha messo il drone in **DESCEND** (nav_state=12) → entrambe modalità **senza controllo orizzontale**.
+1. PX4 ha triggerato `mc_pos_control: invalid setpoints` quando l'EKF ha marcato `xy_valid = false` (3-5 s dopo l'inizio del gap, allo scadere di `EKF2_NOAID_TOUT` che era al default 5 s).
+2. `mc_pos_control` ha applicato il suo **blind-land interno** → in `10_54_52` il drone è passato in **ALTCTL**, in `10_45_41` è andato in **DESCEND** (nav_state=12) → entrambe modalità **senza controllo orizzontale**.
 3. In 10-15 s il drone è derivato di 15 m orizzontalmente (velocità 2-3 m/s) — il pilota ha dovuto contro-attaccare per evitare lo schianto.
+
+### Architettura failsafe a due livelli — correzione importante (2026-05-27)
+
+> ⚠️ Durante l'applicazione delle modifiche failsafe abbiamo scoperto che la diagnosi iniziale era incompleta. Verifica sui parametri del Pixhawk: `COM_POSCTL_NAVL` era **già a `Altitude`** prima degli incidenti, eppure il blind-land è scattato lo stesso. Significa che la modifica del solo failsafe commander non basta.
+
+PX4 ha due livelli di failsafe sovrapposti sulla perdita di posizione:
+
+| Livello | Modulo | Logica | Parametro principale |
+|---|---|---|---|
+| **Alto (commander)** | `commander` | "La posizione è persa, applico la policy" | `COM_POSCTL_NAVL`, `COM_POS_FS_EPH` |
+| **Basso (controller)** | `mc_pos_control` | "Non ricevo setpoint validi, non posso fare controllo orizzontale, atterro" | Hard-coded (blind-land verticale) |
+
+Il livello basso **scavalca** quello alto: se `mc_pos_control` decide che i setpoint sono invalidi (perché l'EKF ha marcato `xy_valid = false`), triggera il blind-land **prima** che il commander possa applicare `COM_POSCTL_NAVL`.
+
+Il vero gating per quanto a lungo l'EKF tollera l'assenza di GPS è **`EKF2_NOAID_TOUT`** (default 5 s, cap firmware **10 s**). Dopo questo tempo l'EKF dichiara `xy_valid = false` e `mc_pos_control` interviene.
+
+#### Conseguenze pratiche con configurazione attuale
+
+- Cap firmware `EKF2_NOAID_TOUT = 10 s` significa che **non possiamo coprire l'intero gap di 21.6 s**. Resta una finestra di ~11.6 s in cui il failsafe scatterà comunque.
+- Al prossimo dropout, attorno a t = 10 s scatterà o il blind-land di `mc_pos_control` **oppure** il commander con `COM_POSCTL_NAVL = Altitude` — quale dei due vince la race condition è da verificare empiricamente col test a terra (foglio di alluminio sull'antenna).
+- Mitigazioni residue applicate: velocità ridotte (5 m/s vs 10) → meno inerzia → drift orizzontale dimezzato durante gli ~11.6 s scoperti.
+- **Rete di sicurezza finale**: il pilota deve essere briefato a flippare immediatamente in **STABILIZED** se vede deriva o perdita di quota anomala. STABILIZED bypassa l'intero stack failsafe PX4 e dà controllo manuale puro.
 
 ### Spiegazione dei picchi di corrente (47 A in 10_54_52, 28 A in 10_45_41)
 
@@ -206,14 +228,15 @@ In `10_45_41` il picco è più contenuto (28.8 A) perché il drone era già in m
 
 ### Azioni prioritarie (dettagli completi in [`azioni-pre-prossimo-volo.md`](./azioni-pre-prossimo-volo.md))
 
-1. **🔴 Riconfigurare il failsafe perdita posizione** (`COM_POSCTL_NAVL`, `COM_POS_FS_*`). Da solo elimina lo scenario di quasi-schianto, indipendentemente dalla causa del dropout.
-2. **🔴 Abilitare `GPS_DUMP_COMM = 3`** e ri-volare. Senza il dump UART grezzo del prossimo dropout, tutte le ipotesi sulla causa restano speculative.
-3. **🔴 Volo di test con `Use RTK = off`** (RTCM disabilitata da QGC). Se il dropout sparisce → causa nel flusso RTCM/firmware; se rimane → causa altrove.
-4. **🟡 Aggiornare firmware u-blox a HPG 1.43** (precauzionale: nessun fix specifico documentato, ma comunque l'ultima release stabile).
-5. **🟡 Alzare baud-rate UART GPS da 38400 a 115200** per ridurre rischio saturazione.
-6. **🟡 Aggiornare PX4** alla release stable corrente.
-7. **🟢 Ispezione connettore JST-GH GPS** (per esclusione).
-8. **🟢 Mitigazioni EMI** (ferrite clip, separazione cavi).
+1. **🔴 [APPLICATO 2026-05-27] Riconfigurare failsafe perdita posizione**. La modifica chiave si è rivelata `EKF2_NOAID_TOUT` (cap a 10 s), non solo `COM_POSCTL_NAVL` come ipotizzato inizialmente. Più limiti di velocità/tilt per ridurre la deriva nei ~11.6 s residui scoperti.
+2. **🔴 [APPLICATO 2026-05-27] Abilitare `GPS_DUMP_COMM = Full communication`** per registrare il traffico UART grezzo. Senza il dump del prossimo dropout, tutte le ipotesi sulla causa restano speculative.
+3. **🔴 Test a terra con foglio di alluminio sull'antenna GPS** (eliche RIMOSSE) per verificare empiricamente cosa scatta a t = 10 s: blind-land di `mc_pos_control` o commander Altitude.
+4. **🔴 Volo di test con `Use RTK = off`** (RTCM disabilitata da QGC). Se il dropout sparisce → causa nel flusso RTCM/firmware; se rimane → causa altrove.
+5. **🟡 Aggiornare firmware u-blox a HPG 1.43** (precauzionale: nessun fix specifico documentato, ma comunque l'ultima release stabile).
+6. **🟡 Alzare baud-rate UART GPS da 38400 a 115200** per ridurre rischio saturazione.
+7. **🟡 Aggiornare PX4** alla release stable corrente.
+8. **🟢 Ispezione connettore JST-GH GPS** (per esclusione).
+9. **🟢 Mitigazioni EMI** (ferrite clip, separazione cavi).
 
 ## Da fare
 
