@@ -476,3 +476,121 @@ Stessa pipeline `--auto-trim --satellite` (overlay ESRI 200×200 m):
 | `14_38_41.mcap` | 8.3 MB | decollo abortito |
 | `14_39_06.mcap` | 22 MB | Volo 1 |
 | `14_42_14.mcap` | 72 MB | Volo 2 (motor failure al touchdown) |
+
+---
+
+# Sessione tardo-pomeriggio — Voli 4/5/6 (caduta su Volo 6)
+
+> **Numerazione.** L'utente conta i voli **1-indexed** a partire dal primo della
+> giornata, mentre la tabella sopra usava **0-indexed** (Volo 0 = 16:30). Quindi:
+>
+> | Conteggio utente | = Etichetta sopra | File | Wall CEST |
+> |---|---|---|---|
+> | Volo 1 | Volo 0 | `14_30_03` | 16:30 |
+> | Volo 2 | Volo 1 | `14_39_06` | 16:39 |
+> | **Volo 3** | **Volo 2** | `14_42_14` | 16:42 — *motor failure + atterraggio autonomo* (già analizzato) |
+> | **Volo 4** | — | `14_58_44` | 16:58 |
+> | **Volo 5** | — | `15_01_55` | 17:01 |
+> | **Volo 6** | — | `15_08_55` | 17:08 — **caduta** |
+>
+> Restano due log brevi non in elenco utente, tra Volo 3 e Volo 4.
+
+| File | Wall CEST | Etichetta utente | Armato | Esito |
+|---|---|---|---:|---|
+| `14_47_52.ulg` | 16:47 | (non in elenco) hop breve | ~49 s | decollo, override RC (`Pilot took over` @80 s), atterraggio nominale |
+| `14_48_51.ulg` | 16:48 | (non in elenco) hop breve | ~30 s | arm/disarm a **stick gesture**, hop di prova |
+| `14_58_44.ulg` | 16:58 | **Volo 4** (16:58–17:00) | 118 s | **pulito**: decollo → RTL → `land at destination` → atterraggio nominale |
+| `15_01_55.ulg` | 17:01 | **Volo 5** (17:01–17:04) | 125 s | **pulito**: missione → RTL → `land at destination` → atterraggio nominale |
+| **`15_08_55.ulg`** | **17:08** | **Volo 6** (17:08–17:11) | **105 s** | **CADUTA**: perdita di autorità di controllo in RTL → impatto. Dettaglio sotto. |
+
+## Volo 6 (`15_08_55`) — anatomia della caduta
+
+**Premessa utente:** «batteria molto scarica, ha perso tensione alla fine
+facendo cadere il drone». **CONFERMATA** dalla tensione di bus letta dagli ESC
+(il power module è guasto e segna un valore finto — vedi sotto).
+
+### Cronologia (t = secondi dal log; arm @291 s)
+
+| t (s) | Evento | Stato |
+|---:|---|---|
+| 291.2 | `Executing Mission` → `Climb to 8 m` | AUTO_MISSION |
+| 297.2 | `Takeoff detected` | hover/missione stabile, assetto ~0° |
+| **382.8** | **`Returning to launch`** (RTL, 9 m sopra destinazione) | AUTO_RTL |
+| 383.2–383.6 | transitorio assetto (roll −11°, pitch −8°), poi recupera | oscillazione |
+| 386–387 | **`unallocated_torque` su YAW** = −0.15…−0.23 → **autorità di imbardata satura** | allocatore al limite |
+| **387.9** | **`Motor failure detected` + `Failsafe activated`** | failsafe |
+| 388.0 | `RTL: land at destination` | AUTO_RTL (discesa) |
+| 388.8 | **`Pilot took over using sticks`** | POSCTL |
+| **390.5** | **`unallocated_torque` su PITCH = +4.6 → perdita totale di autorità in beccheggio** | non controllabile |
+| 390.3→391.9 | quota 0 → estimatore va a −11 m (overshoot da impatto); **vz fino a 7.5 m/s** | **caduta** |
+| 391.2 | `ekf2 primary changed 1 (filter fault) → 2` (indotto dall'impatto) | EKF fault |
+| 391.6–392.4 | roll 20→32°, pitch −27…−30° (ribaltamento) | impatto |
+| 394.0 | `Landing detected` | a terra |
+| 396.0 | `Disarmed by landing` | disarmo |
+
+### ⚠️ Power module GUASTO — usare la tensione degli ESC
+
+Il `battery_status` (power module) è **guasto**: segna **tensione fissa ~15.7 V
+(3.92 V/cella), corrente 0 A, `warning=NONE`** per tutto il volo. Sono valori
+**finti** — l'utente conferma che la batteria era scarica. **Non vanno usati.**
+
+La verità arriva dalla telemetria **degli ESC** (`esc_status.esc[*].esc_voltage`),
+indipendente dal power module:
+
+| Istante | Vbus (ESC) | V/cella (4S) | Isum | RPM medio |
+|---|---:|---:|---:|---:|
+| Decollo (~295 s) | 14.95 V | 3.74 | ~2 A | salita |
+| Crociera (340 s) | 12.95 V | 3.24 | 24 A | ~5230 |
+| Crociera (370 s) | 12.12 V | 3.03 | 25 A | ~5160 |
+| RTL (382 s) | 11.50 V | 2.88 | 25 A | ~5200 |
+| **Collasso (387 s)** | **11.12 V** | **2.78** | 25 A | 4995→cala |
+| Minimo globale | **10.89 V** | **2.72** | — | — |
+
+Decadimento **monotono** 14.95 → 11.0 V a corrente/RPM costanti = **deplezione
+reale** del pacco (non solo sag istantaneo). A ~2.7 V/cella sotto carico la LiPo è
+**esaurita**: non può più sostenere la potenza per l'hover a 6 motori.
+
+### Perché è caduto — meccanismo (corretto)
+
+**Batteria scarica → tensione di bus crollata → potenza insufficiente.** Finché il
+bus reggeva (>~11.5 V) i motori tenevano ~5200 RPM; sotto carico sostenuto
+dell'RTL la tensione è scesa a ~11 V e gli **RPM non hanno più seguito il comando**
+(comando alto/saturo, RPM in calo: 5200→4900→4128→2802). Il controllore ha
+**saturato** i motori per compensare ma la potenza non c'era → **perdita di
+autorità**, prima in imbardata (~387 s, `unallocated_torque` yaw), poi in beccheggio
+(~390.5 s) → ingovernabile → caduta (vz 7.5 m/s, ribaltamento roll 32°/pitch −30°).
+
+- **Il `Motor failure detected` @387.9 s qui è CORRETTO**, non un falso positivo:
+  il Failure Detector ha visto RPM realmente sotto il comando perché **mancava la
+  potenza**. È il caso opposto a **Test 3** e **Volo 3** (`14_42_14`), dove il bit
+  era cosmetico a touchdown, si auto-cancellava e il drone restava in quota.
+- **Discriminante** falso-positivo vs reale: se il bit si auto-cancella e il drone
+  resta in quota → cosmetico; se gli RPM non seguono il comando e il drone **perde
+  quota / si ribalta** → guasto reale (qui: alimentazione).
+- L'asimmetria M4/M5 bassi vs M1/M3/M6 saturi è la **reazione** dell'allocatore al
+  cedimento, non la causa.
+
+> **Nota strumentazione (azione richiesta):** il power module (tensione *e*
+> corrente) è da **riparare/riconfigurare** — durante questo volo non avrebbe mai
+> potuto far scattare il failsafe di batteria di PX4 perché leggeva 15.7 V fisso.
+> Con il sensore funzionante, a 2.7 V/cella il failsafe `LOW`/`CRITICAL` sarebbe
+> intervenuto molto prima (atterraggio automatico) ed **evitato la caduta**. Nel
+> frattempo monitorare la carica a terra e limitare la durata di volo.
+
+### Tooling
+
+```bash
+python3 plot/analisi_batteria_finale.py log/2026-06-04/15_08_55.ulg
+```
+Stampa intervalli armato, profilo batteria (V/cella, warning, R interna),
+finestra finale V/I, quota/vz, transizioni `land_detected`/`nav_state`, e RPM ESC.
+
+## File `.mcap` generati (Voli 4/5/6 + hop)
+
+| File | Dimensione | Etichetta |
+|---|---:|---|
+| `14_47_52.mcap` | 35 MB | hop breve (16:47) |
+| `14_48_51.mcap` | 22 MB | hop breve (16:48) |
+| `14_58_44.mcap` | 84 MB | Volo 4 (pulito) |
+| `15_01_55.mcap` | 88 MB | Volo 5 (pulito) |
+| `15_08_55.mcap` | 74 MB | **Volo 6 (caduta)** |

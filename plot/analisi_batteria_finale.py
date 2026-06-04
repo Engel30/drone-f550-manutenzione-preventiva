@@ -85,6 +85,36 @@ def main():
         print(f"  celle lette : {[j for j, _ in cellcols]}")
         print(f"  cella peggiore: idx {worst} -> min {vmin_per_cell[worst]:.2f} V")
 
+    # ── TENSIONE/CORRENTE DAGLI ESC (fonte indipendente dal power module) ──
+    # ATTENZIONE 2026-06-04: il power module (battery_status) e' GUASTO e segna
+    # tensione fissa (~15.7 V) e corrente 0. La verita' di bus arriva dagli ESC.
+    try:
+        esc = get_topic(ulog, "esc_status")
+        teb = col(esc, "timestamp") / 1e6 - t0
+        # solo gli ESC realmente connessi (i canali liberi loggano voltage=0)
+        conn = [j for j in range(8)
+                if f"esc[{j}].esc_voltage" in esc.data
+                and np.nanmax(col(esc, f"esc[{j}].esc_voltage")) > 1.0]
+        nmot = len(conn)
+        Vesc = np.array([col(esc, f"esc[{j}].esc_voltage") for j in conn])
+        Iesc = np.array([col(esc, f"esc[{j}].esc_current") for j in conn])
+        Vbus = Vesc.mean(axis=0)
+        print("\n-- Tensione di BUS dagli ESC (fonte affidabile, power module = GUASTO) --")
+        s = max(0, np.searchsorted(teb, intervals[0][0]) if intervals else 0)
+        e = np.searchsorted(teb, t_arm_end)
+        vc = lambda v: f"{v/cells:.2f}V/c" if cells else ""
+        print(f"  V decollo : {Vbus[s]:.2f} V ({vc(Vbus[s])})")
+        print(f"  V finale  : {Vbus[e-1]:.2f} V ({vc(Vbus[e-1])})")
+        print(f"  V minima  : {Vbus.min():.2f} V ({vc(Vbus.min())})  @ t={teb[np.argmin(Vbus)]:.1f}s")
+        print(f"  I tot max : {Iesc.sum(axis=0).max():.1f} A   media: {Iesc.sum(axis=0)[s:e].mean():.1f} A")
+        print("\n  Profilo (t : Vbus, Vmin_cella, Isum, RPM medio):")
+        for tt in list(np.arange(intervals[0][0] + 5, t_arm_end, 15)) if intervals else []:
+            k = np.argmin(np.abs(teb - tt))
+            rpmmean = np.mean([col(esc, f"esc[{j}].esc_rpm")[k] for j in conn])
+            print(f"    t={tt:7.1f}s  Vbus={Vbus[k]:5.2f} ({vc(Vbus[k])})  Isum={Iesc[:,k].sum():5.1f}A  RPM={rpmmean:5.0f}")
+    except Exception as ex:
+        print(f"  (esc voltage: {ex})")
+
     # transizioni di warning
     print("\n-- Transizioni warning batteria --")
     last = -1
