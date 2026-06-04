@@ -5,6 +5,26 @@ prerequisito al volo successivo sta in
 [`azioni-pre-prossimo-volo.md`](azioni-pre-prossimo-volo.md); la cronologia di
 ciò che è stato fatto sta in [`../diario.md`](../diario.md).
 
+## Indagine RTK / RTCM (driver GPS) — APERTA
+
+> **Decisione operativa (2026-06-04): per ora si vola SENZA RTK, solo in 3D lock.**
+> Il GPS 3D (eph ~0.6 m) è sufficiente per le prove pala (basate su IMU/ESC/assetto,
+> non sulla posizione assoluta) e **evita il modo di guasto**. Tenere l'RTK
+> disattivato finché l'indagine sotto non è chiusa.
+
+- [ ] **Indagare l'iniezione RTCM / interazione driver PX4 ↔ u-blox in modo RTK-rover.**
+  Causa accertata del guasto GPS: in modo RTK (RTCM iniettato nell'**unico**
+  ricevitore u-blox del drone — non esiste un secondo GPS) il link driver↔u-blox
+  va in stallo/timeout e reinizializza → outage NAV → failsafe (atterraggio
+  forzato). In 3D puro (niente RTCM) il link è stabile. **Non è il cavo, non è
+  meccanico, non è una correzione RTCM corrotta**: è il *modo RTK* la
+  precondizione. Prova più forte: A/B voli quadrati 04/06 (`14_07_19` RTK perde
+  GPS vs `14_13_15` GPS-puro stessa missione, 0 perdita). Dettaglio, checklist e
+  piano in [`indagine-rtk-attivo-2026-06-04.md`](indagine-rtk-attivo-2026-06-04.md).
+  Direzione: **config/software RTK** (sorgente/instradamento RTCM, driver,
+  baudrate), + log u-center lato ricevitore per vedere se stalla il rover o PX4.
+  NON ri-tentare interventi su cavo/connettore/schermatura.
+
 ## Acquisizione dati di routine
 
 - [ ] **Calibrazione corrente del power module** — richiede pinza amperometrica DC.

@@ -311,6 +311,50 @@ Il driver `gps` di PX4 ha avuto multipli fix sulla gestione errori UBX nelle rel
 
 ---
 
+### B5. Indagare rumore sul canale yaw del radiocomando (override RC spurio)
+
+> **Origine**: sessione voli quadrati 2026-06-04. In **Volo 2** (`log/2026-06-04/14_42_14.ulg`)
+> la missione automatica è stata troncata da un override RC
+> (`[commander] Pilot took over using sticks` @571.0 s → passaggio in POSCTL →
+> atterraggio anticipato). **Il radiocomando non è stato toccato** dal pilota →
+> sospetto **rumore/glitch sul canale yaw**.
+
+**Evidenza dal log:**
+
+- Trigger del takeover = blip isolato **yaw = −0.106 (10.6 %)** per ~0.1 s, con
+  roll/pitch a **0.000 esatti** per tutto il volo e throttle fermo a −1.00.
+- Il blip è **sotto la soglia configurata `COM_RC_STICK_OV = 30 %`** → non
+  dovrebbe nemmeno scattare un override "intenzionale": coerente con disturbo
+  elettrico/meccanico sul canale, non con un input voluto.
+- Conseguenza operativa: con throttle al minimo, l'ingresso in POSCTL ha prodotto
+  una **discesa a rateo massimo e atterraggio involontario**. Rischio concreto di
+  abortire i voli automatici.
+
+**Procedura:**
+
+- [ ] QGC → Radio: a stick **fermi**, osservare la barra del canale **yaw** per
+      qualche minuto → cercare jitter/spike anomali (gli altri canali come
+      riferimento di rumore di fondo).
+- [ ] Verificare **trim** e **subtrim** dello yaw sul trasmettitore (un offset
+      vicino alla soglia rende più facile lo scatto).
+- [ ] Controllare **deadzone** del canale yaw (`RC_MAP_YAW` → `RC<n>_DZ`):
+      eventualmente allargarla per assorbire il rumore.
+- [ ] Ispezionare meccanicamente il **potenziometro/gimbal yaw** del TX (usura,
+      gioco) e il cablaggio/connettore del modulo RC sul lato ricevitore.
+- [ ] Mitigazione software: valutare di **alzare `COM_RC_STICK_OV`** (es. 50 %) o,
+      per i voli puramente automatici di test, **disabilitare l'override in AUTO**
+      (`COM_RC_OVERRIDE` bit 0 = 0) così un bump non tronca la missione.
+- [ ] Riverificare su un volo automatico che non compaia più
+      `Pilot took over using sticks` senza input reale.
+
+**Esito atteso:** nessun override RC spurio; canale yaw stabile a stick fermi.
+
+> Nota: **non** è collegato al *motor failure detected* dello stesso volo, che è
+> un falso positivo del Failure Detector al touchdown (vedi
+> [`../log/2026-06-04/README.md`](../log/2026-06-04/README.md)).
+
+---
+
 ## 🟢 IGIENICO — da fare per esclusione, costo trascurabile
 
 ### C1. ~~Ispezione meccanica connettori GPS~~ → assorbito in A0
@@ -384,6 +428,7 @@ Per ogni volo di verifica, analizzare il `.ulg` con script in `plot/` per confer
 | B2 | Alzare baud-rate UART GPS a 115200 | 🟡 | [ ] non bloccante |
 | B3 | Aggiornamento PX4 alla release stable corrente | 🟡 | [ ] non bloccante |
 | B4 | Stress test 5 min motori armati a terra | 🟡 | [ ] (sovrapponibile a A0.3) |
+| **B5** | **Indagare rumore canale yaw RC (override spurio Volo 2 04/06, TX non toccato)** | 🟡 | **[ ]** |
 | C1 | ~~Ispezione + hot-glue connettori GPS~~ | ⊘ | assorbito in A0.4 |
 | C2 | ~~Ferrite clip + separazione fisica cavi~~ | ⊘ | schermatura in A0.2, separazione in A0.4 |
 | D1 | Installazione secondo GPS M9N (GPS2) | 🟢 | [ ] ridondanza per sicurezza futura |

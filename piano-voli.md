@@ -20,12 +20,12 @@ Per le azioni bloccanti pre-volo vedi
 |---|---|---:|---:|---:|
 | A | Hover baseline, pale sane (swap posizione) | 6 | **6** | 0 |
 | B | Hover con pala danneggiata 5 % (×6 motori) | 6 | **6** | 0 |
-| C | Hover con pala danneggiata 10 % (×6 motori) | 6 | **1** | 5 |
+| C | Hover con pala danneggiata 10 % (×6 motori) | 6 | **6** | 0 |
 | D | Quadrato 3×3 m, danno 5 % (2 sane + 12) | 14 | 0 | 14 |
 | E | Quadrato 3×3 m, danno 10 % (2 sane + 12) | 14 | 0 | 14 |
 | F | Traiettoria casuale ~1 min, danno 5 % (2 sane + 12) | 14 | 0 | 14 |
 | G | Traiettoria casuale ~1 min, danno 10 % (2 sane + 12) | 14 | 0 | 14 |
-| **Totale attivo** | | **74** | **13** | **61** |
+| **Totale attivo** | | **74** | **18** | **56** |
 | H | Hover con pala 15 % `[SOSPESO]` | (6) | 0 | (6) |
 | I | Quadrato 3×3 m, danno 15 % `[SOSPESO]` | (14) | 0 | (14) |
 | L | Traiettoria casuale, danno 15 % `[SOSPESO]` | (14) | 0 | (14) |
@@ -60,19 +60,20 @@ montata a turno su ciascuno dei 6 motori M1…M6.
 | B.5 | M5 | ✅ | `log/2026-05-27/15_54_10.ulg` |
 | B.6 | M6 | ✅ | `log/2026-05-27/16_05_24.ulg` |
 
-## Set C — Hover, pala danneggiata 10 % (6 voli) — 1/6
+## Set C — Hover, pala danneggiata 10 % (6 voli) ✅
 
 6 voli in hovering Stabilize, ~1 minuto ciascuno, una pala accorciata del 10 %
-montata a turno su ciascuno dei 6 motori M1…M6.
+montata a turno su ciascuno dei 6 motori M1…M6. C.2–C.6 completati il 2026-06-04
+(vedi [`log/2026-06-04/README.md`](log/2026-06-04/README.md)).
 
 | # | Motore con pala 10 % | Stato | Log |
 |---|---|---|---|
 | C.1 | M1 | ✅ | `log/2026-05-27/16_07_29.ulg` |
-| C.2 | M2 | ⏳ da fare | |
-| C.3 | M3 | ⏳ da fare | |
-| C.4 | M4 | ⏳ da fare | |
-| C.5 | M5 | ⏳ da fare | |
-| C.6 | M6 | ⏳ da fare | |
+| C.2 | M2 | ✅ | `log/2026-06-04/12_39_37.ulg` |
+| C.3 | M3 | ✅ | `log/2026-06-04/12_21_42.ulg` |
+| C.4 | M4 | ✅ | `log/2026-06-04/12_43_47.ulg` |
+| C.5 | M5 | ✅ | `log/2026-06-04/12_46_09.ulg` |
+| C.6 | M6 | ✅ | `log/2026-06-04/12_28_29.ulg` |
 
 ---
 
