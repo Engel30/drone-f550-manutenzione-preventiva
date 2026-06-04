@@ -4,6 +4,12 @@
 >
 > Origine: due incidenti del 2026-05-26 (log `10_45_41.ulg` e `10_54_52.ulg`), aggiornato il 2026-05-27 dopo la **diagnosi definitiva** della causa dei dropout GPS.
 >
+> **Stato al 2026-06-04**: la sezione **A0 (cavo GPS) è CHIUSA con esito positivo**.
+> Il cavo è stato rifatto con schermatura ed è stato superato il volo di
+> accettazione (`log/2026-06-04/11_52_13.ulg`, BER UART 0.24 % a regime di lift,
+> vs 49 % del peggior caso 27/05). Vedi
+> [`../log/2026-06-04/README.md`](../log/2026-06-04/README.md).
+>
 > Riferimenti diagnostici:
 > - [`troubleshooting-gps-dropout-2026-05-27.md`](./troubleshooting-gps-dropout-2026-05-27.md) — **diagnosi confermata** del 27/05 (causa: cavo GPS difettoso)
 > - [`troubleshooting-rtk.md`](./troubleshooting-rtk.md) — analisi forense incidente 26/05
@@ -31,9 +37,15 @@ Il dropout in sé non è l'emergenza primaria: lo è la reazione del failsafe (`
 
 ## 🔴 CRITICO — da completare prima di QUALSIASI volo
 
-### A0. Cavo GPS — ricontrollo, ricostruzione, schermatura
+### A0. Cavo GPS — ricontrollo, ricostruzione, schermatura ✅ COMPLETATO 2026-06-04
 
-> **Causa radice identificata.** Senza questa azione il problema rimane, qualunque parametro PX4 o firmware modulo si modifichi. Vedi [`troubleshooting-gps-dropout-2026-05-27.md`](./troubleshooting-gps-dropout-2026-05-27.md) per la diagnosi.
+> **Causa radice identificata** e **rimossa**. Cavo rifatto con schermatura
+> (treccia rame stagnato + drain wire single-ended lato Pixhawk), hot-glue sui
+> connettori JST-GH, instradamento separato dai cavi motore. Volo di accettazione
+> superato il 2026-06-04 (`log/2026-06-04/11_52_13.ulg`): BER UART **0.24 %** su
+> 146 s armato con 93 % del tempo a regime di lift, vs 49 % del peggior caso 27/05.
+> Vedi [`../log/2026-06-04/README.md`](../log/2026-06-04/README.md) e
+> [`troubleshooting-gps-dropout-2026-05-27.md`](./troubleshooting-gps-dropout-2026-05-27.md).
 
 #### A0.1 Ispezione preliminare (test "wiggle")
 
@@ -355,11 +367,11 @@ Per ogni volo di verifica, analizzare il `.ulg` con script in `plot/` per confer
 
 | # | Azione | Priorità | Stato |
 |---|---|---|---|
-| **A0.1** | **Test wiggle multimetro su cavo GPS attuale** | 🔴 | **[ ]** |
-| **A0.2** | **Ricostruzione cavo GPS con schermatura (treccia + drain wire)** | 🔴 | **[ ]** |
-| **A0.3** | **Test a banco nuovo cavo: idle + lift + torsione, verifica BER < 0.5%** | 🔴 | **[ ]** |
-| **A0.4** | **Instradamento + hot-glue connettori + separazione cavi motore** | 🔴 | **[ ]** |
-| **A0.5** | **Volo di accettazione 3-5 min, verifica zero reinit driver** | 🔴 | **[ ]** |
+| **A0.1** | **Test wiggle multimetro su cavo GPS attuale** | 🔴 | **[x] 2026-06-04** |
+| **A0.2** | **Ricostruzione cavo GPS con schermatura (treccia + drain wire)** | 🔴 | **[x] 2026-06-04** |
+| **A0.3** | **Test a banco nuovo cavo: idle + lift + torsione, verifica BER < 0.5%** | 🔴 | **[x] 2026-06-04** (sostituito da volo reale, vedi A0.5) |
+| **A0.4** | **Instradamento + hot-glue connettori + separazione cavi motore** | 🔴 | **[x] 2026-06-04** |
+| **A0.5** | **Volo di accettazione 3-5 min, verifica zero reinit driver** | 🔴 | **[x] 2026-06-04** (`log/2026-06-04/11_52_13.ulg` — BER 0.24 %, 0 reinit, 0 gap) |
 | A1 | Modifica parametri failsafe (EKF2_NOAID_TOUT, COM_POSCTL_NAVL, COM_POS_FS_EPH) + limiti velocità/tilt | 🔴 | [x] 2026-05-27 |
 | A1-bis | Flight Behavior sliders: Responsiveness 0.5, Horizontal Vel 3 m/s, Vertical Vel 1 m/s | 🔴 | [x] 2026-05-27 |
 | A1.test | Test a terra con antenna coperta — verificare comportamento a t=10s | 🔴 | [ ] |

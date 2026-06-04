@@ -10,6 +10,24 @@ Per le azioni bloccanti prima del prossimo volo vedi
 
 ---
 
+## 2026-06-04 — Volo di accettazione cavo GPS schermato ✅
+
+- Rifatto il cavo GPS con **schermatura** (treccia in rame stagnato + drain wire
+  saldato a GND lato Pixhawk), **hot-glue** sui connettori JST-GH, instradamento
+  separato dai cavi motore. Chiude le azioni A0.1–A0.4 di
+  [`maintenance/azioni-pre-prossimo-volo.md`](maintenance/azioni-pre-prossimo-volo.md).
+- 3 log della giornata, di cui il volo principale `11_52_13.ulg` di **2:26 min**
+  armato in STABILIZED manuale, **93 % del tempo in regime di lift** (sum-RPM
+  media 29 372, max 37 354) — riproduce la condizione discriminante che il 27/05
+  collassava il vecchio cavo.
+- Analisi `gps_dump` con il nuovo script
+  [`plot/gps_dump_ber.py`](plot/gps_dump_ber.py): **garbage RX 0.24 %**,
+  4.91 NAV-PVT/s, 0 reinit driver, 0 gap `sensor_gps` > 2 s.
+  Confronto col 27/05: **49.0 % → 0.24 %** a parità di regime motori (~200×).
+- A0.5 (volo di accettazione) superato. `GPS_DUMP_COMM = 1` resta attivo per ora.
+- → [`log/2026-06-04/README.md`](log/2026-06-04/README.md) (legenda file + tabella metriche)
+- → [`maintenance/azioni-pre-prossimo-volo.md`](maintenance/azioni-pre-prossimo-volo.md) (sezione A0 chiusa)
+
 ## 2026-05-27 — Diagnosi definitiva dropout GPS + prima sessione prove pale
 
 **Mattina/pomeriggio — diagnosi cavo GPS**

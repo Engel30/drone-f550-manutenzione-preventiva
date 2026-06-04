@@ -20,6 +20,20 @@ ciò che è stato fatto sta in [`../diario.md`](../diario.md).
 
 ## Tooling di analisi
 
+### Consolidato (committato)
+
+- `foxglove/ulog_to_mcap.py` — conversione `.ulg → .mcap` con `--auto-trim`
+  e `--satellite` (overlay tile ESRI a partire dalle coordinate di decollo).
+- `plot/info_log.py` — metadati log + elenco topic uORB con frequenza e completezza.
+- `plot/gps_dump_ber.py` — diagnosi BER del link UART GPS (parsing UBX da
+  topic `gps_dump`). Richiede `GPS_DUMP_COMM = 1`. Usato per validare il
+  cavo schermato il 2026-06-04.
+- `analisi/scripts/analizza_log.py` + `sintesi.py` — estrazione metriche
+  vibrazioni / squilibrio elica / rapporti comando-RPM per ciascun volo,
+  output in `analisi/dati/`.
+
+### Da fare
+
 - [ ] **Layout PlotJuggler salvato** — `maintenance/plotjuggler/dashboard-base.xml`:
   FFT giroscopio (3 assi, IMU principale), RPM dei 6 motori sovrapposti,
   correnti dei 6 ESC + corrente bus per cross-check, temperature ESC nel tempo,
@@ -59,8 +73,10 @@ ciò che è stato fatto sta in [`../diario.md`](../diario.md).
   - survey-in base RTK non converge → degradazione posizione → abort missione
     in landing.
 - Capitolo "case study": analisi forense incidente RTK 2026-05-26 + diagnosi
-  cavo GPS 2026-05-27 come esempio di metodologia diagnostica basata su log e
-  strumentazione del bus seriale (`GPS_DUMP_COMM`).
+  cavo GPS 2026-05-27 + **validazione cavo schermato 2026-06-04** come esempio
+  di ciclo diagnostico completo (osservazione → ipotesi → strumentazione del
+  bus seriale via `GPS_DUMP_COMM` → causa radice → azione correttiva →
+  verifica quantitativa con la stessa metrica).
 - Appendice: configurazione completa parametri PX4 utilizzata, con diff
   rispetto al default.
 
