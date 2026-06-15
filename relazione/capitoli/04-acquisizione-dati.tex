@@ -1,0 +1,130 @@
+\chapter{Acquisizione dati}
+\label{cap:acquisizione}
+
+L'acquisizione dati \`e il cuore del progetto: l'arco di lavoro
+\emph{configura $\rightarrow$ testa acquisendo dati} ha senso solo se il velivolo
+registra, a frequenza adeguata, le grandezze che permettono di valutare lo
+stato di salute del sistema. Questo capitolo descrive \emph{cosa} viene loggato,
+\emph{a che frequenza} e \emph{con quale architettura}.
+
+\section{Il formato ULog di PX4}
+
+PX4 registra i dati in formato \textbf{ULog} (\texttt{.ulg}): un file binario
+auto-descrittivo che contiene la definizione dei topic, il valore di tutti i
+parametri del veicolo al momento dell'arming e lo stream dei messaggi
+\emph{timestamped} (microsecondi dal boot). Viene creato un file per ogni ciclo
+arming$\rightarrow$disarming, salvato su microSD in
+\texttt{/fs/microsd/log/<data>/<orario>.ulg}. La lettura off-line avviene con la
+libreria Python \texttt{pyulog} (estrazione topic, frequenze, CSV) e con
+strumenti come PX4 Flight Review, PlotJuggler e --- per il replay 3D --- la
+pipeline Foxglove descritta nel Capitolo~\ref{cap:foxglove}.
+
+\section{Architettura uORB e pipeline di logging}
+
+In PX4 i driver dei sensori pubblicano messaggi sul bus interno \textbf{uORB}
+(micro Object Request Broker), un sistema publish/subscribe. Il modulo
+\texttt{logger} \textbf{non campiona}: si limita a sottoscrivere i topic uORB e a
+scriverli su SD, perci\`o la frequenza di logging coincide con la frequenza di
+pubblicazione del topic. Un volo standard espone circa \textbf{147 topic} uORB.
+La Figura~\ref{fig:pipeline-logging} sintetizza la catena dei dati.
+
+\figurasegnaposto{Pipeline di logging: sensori (IMU, ESC, GPS, baro, mag)
+$\rightarrow$ driver $\rightarrow$ topic uORB $\rightarrow$ modulo logger
+$\rightarrow$ file \texttt{.ulg} su microSD $\rightarrow$ analisi off-line.}{Schema
+-- da generare}{fig:pipeline-logging}
+
+\section{Profilo di logging \texttt{SDLOG\_PROFILE\,=\,849}}
+
+La selezione di \emph{cosa} loggare \`e governata dalla bitmask
+\texttt{SDLOG\_PROFILE}. Il valore adottato (\texttt{849}) attiva, oltre al
+profilo di default, l'alta frequenza, il confronto fra le tre IMU e i FIFO grezzi
+di giroscopio e accelerometro --- proprio i dati necessari all'analisi
+vibrazionale (Tabella~\ref{tab:sdlog}).
+
+\begin{table}[H]
+\centering
+\caption{Decodifica della bitmask \texttt{SDLOG\_PROFILE\,=\,849}.}
+\label{tab:sdlog}
+\small
+\begin{tabularx}{\linewidth}{@{}c r L{8.5cm}@{}}
+\toprule
+\textbf{Bit} & \textbf{Valore} & \textbf{Contenuto} \\
+\midrule
+0 & 1   & Default (stato veicolo, GPS, modalit\`a, batteria) \\
+4 & 16  & High rate (IMU a piena frequenza) \\
+6 & 64  & Sensor comparison (3 IMU separate) \\
+8 & 256 & Raw gyro FIFO \\
+9 & 512 & Raw accel FIFO \\
+\midrule
+\multicolumn{2}{@{}r}{\textbf{Totale = 849}} & \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Frequenze di acquisizione}
+
+La Tabella~\ref{tab:topic-freq} riepiloga i topic pi\`u rilevanti per la
+manutenzione preventiva con le frequenze \emph{misurate} sul log di riferimento
+(\texttt{2026-04-28/10\_28\_38.ulg}, $\sim$166\,MB, $\sim$4\,min). Si distinguono
+tre fasce: i \textbf{FIFO inerziali} a $\sim$1\,kHz (per la FFT delle
+vibrazioni), i topic di controllo e assetto a centinaia di Hz, e la
+telemetria \enquote{lenta} (batteria, GPS) a pochi Hz. L'elenco esteso \`e
+mantenuto in \texttt{plot/DATI\_LOG.md} e richiamato in
+Appendice~\ref{cap:appendici}.
+
+\begin{table}[H]
+\centering
+\caption{Topic uORB principali e frequenze misurate (log di riferimento).}
+\label{tab:topic-freq}
+\small
+\begin{tabularx}{\linewidth}{@{}l r L{6.6cm}@{}}
+\toprule
+\textbf{Topic} & \textbf{Freq.} & \textbf{Uso per la manutenzione} \\
+\midrule
+\texttt{sensor\_gyro\_fifo}    & $\sim$983\,Hz & FFT vibrazioni: squilibri elica/cuscinetti \\
+\texttt{sensor\_accel\_fifo}   & $\sim$957\,Hz & FFT accelerazioni, squilibri strutturali \\
+\texttt{actuator\_motors}      & $\sim$889\,Hz & Comandi normalizzati ai 6 motori \\
+\texttt{vehicle\_attitude}     & $\sim$144\,Hz & Qualit\`a del controllo d'assetto \\
+\texttt{sensor\_combined}      & $\sim$144\,Hz & IMU combinata (gyro+accel) \\
+\texttt{esc\_status}           & $\sim$65\,Hz  & RPM, corrente, temperatura per ESC \\
+\texttt{manual\_control\_setpoint} & $\sim$43\,Hz & Input stick del pilota \\
+\texttt{vehicle\_local\_position} & $\sim$10\,Hz & Posizione stimata (NED) \\
+\texttt{hover\_thrust\_estimate} & $\sim$10\,Hz & Deriva spinta di hover (peso/motori) \\
+\texttt{battery\_status}       & $\sim$5\,Hz   & Tensione e corrente (SoC non affidabile) \\
+\texttt{vehicle\_imu\_status}  & $\sim$1\,Hz   & Metriche vibrazione e clip per IMU \\
+\texttt{failure\_detector\_status} & $\sim$2\,Hz & Squilibrio elica, motori in failure \\
+\texttt{vehicle\_gps\_position} & $\sim$4{,}5\,Hz & Qualit\`a fix GPS \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{FIFO inerziali ad alta frequenza}
+
+I topic \texttt{sensor\_gyro\_fifo} e \texttt{sensor\_accel\_fifo} contengono
+\emph{burst} di campioni per ogni messaggio loggato (frequenza effettiva
+$\sim$1\,kHz). Questa risoluzione consente l'analisi FFT delle vibrazioni: la
+firma spettrale di un'elica accorciata o di un cuscinetto usurato \`e visibile
+come picco alla frequenza di rotazione e alle sue armoniche. \`E la base
+dell'analisi del Capitolo~\ref{cap:osservazioni}.
+
+\subsection{Grandezze chiave per la manutenzione preventiva}
+
+Tra i 147 topic, alcuni sono particolarmente diagnostici:
+\texttt{vehicle\_imu\_status.accel\_vibration\_metric} (livello di vibrazione),
+\texttt{failure\_detector\_status.imbalanced\_prop\_metric} (squilibrio elica
+stimato da PX4), \texttt{esc\_status} (squilibri di RPM/corrente tra motori) e
+\texttt{battery\_status} (tensione e corrente di pacco; le stime derivate come SoC
+e SoH richiedono per\`o una configurazione della batteria che nel nostro caso \`e
+rimasta incompleta, Capitolo~\ref{cap:configurazione}). Questi indicatori
+permettono di intercettare la degradazione \emph{prima} che diventi guasto.
+
+\section{Qualit\`a del logging e dropout}
+
+La capacit\`a di scrittura della microSD \`e il collo di bottiglia: un log a
+banco da 28\,s (\texttt{16\_02\_24.ulg}) ha registrato 9 \emph{dropout} per
+0{,}4\,s complessivi, che colpiscono soprattutto i FIFO ad alta frequenza. La
+mitigazione pi\`u efficace \`e una \textbf{microSD veloce} (classe UHS-I U3/V30,
+$\geq$30\,MB/s sostenuti); in subordine si pu\`o snellire
+\texttt{SDLOG\_PROFILE} rimuovendo i bit non utilizzati. Questa attenzione \`e
+essa stessa una voce di manutenzione preventiva, perch\'e un log con buchi
+compromette le analisi a posteriori.

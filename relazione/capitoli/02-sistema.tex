@@ -1,0 +1,124 @@
+\chapter{Il sistema}
+\label{cap:sistema}
+
+Questo capitolo descrive l'architettura hardware dell'esacottero e ne riepiloga
+la composizione tramite la \emph{Bill of Materials} (BOM). L'obiettivo \`e
+fornire il quadro fisico del velivolo su cui poggiano tutti i capitoli
+successivi: la configurazione del firmware, l'acquisizione dati e la diagnosi
+dei guasti si riferiscono ai sottosistemi qui introdotti.
+
+\section{Architettura generale}
+
+Il velivolo \`e un \textbf{esacottero}, ossia un multirotore a sei rotori
+disposti simmetricamente sui bracci del frame. Rispetto a un quadricottero,
+la configurazione a sei motori offre maggiore capacit\`a di carico e una
+ridondanza intrinseca: la perdita parziale di spinta su un rotore pu\`o essere
+in parte compensata dagli altri. Questa caratteristica \`e rilevante per il
+progetto, perch\'e la campagna di volo (Capitolo~\ref{cap:campagna}) studia
+proprio l'effetto di una pala danneggiata sul comportamento del velivolo.
+
+I sottosistemi principali sono cinque:
+\begin{description}
+  \item[Struttura] il frame F550 con carrello e mast GPS;
+  \item[Propulsione] sei gruppi motore-ESC-elica;
+  \item[Avionica] il flight controller Pixhawk 6X con IMU, magnetometro e GNSS;
+  \item[Alimentazione] batteria LiPo, distribuzione di potenza e regolatori;
+  \item[Comunicazione] radiocomando RC e telemetria verso la ground station.
+\end{description}
+
+\figurasegnaposto{Schema a blocchi dell'architettura: Pixhawk 6X come nodo
+centrale collegato a GPS (UART), sei ESC con telemetria DShot, ricevitore RC,
+telemetria 433\,MHz e power module.}{Schema -- da generare}{fig:schema-blocchi}
+
+\figurasegnaposto{Vista del drone con i componenti principali etichettati.}{Foto
+-- da scattare}{fig:drone-etichettato}
+
+\section{Sottosistemi}
+
+\subsection{Struttura e propulsione}
+Il frame DJI F550 \`e un telaio esagonale che integra la \emph{Power
+Distribution Board} (PDB) nella piastra inferiore, semplificando il cablaggio
+di potenza verso i sei ESC. Il carrello \`e costituito da piedi flessibili ad
+arco che ammortizzano l'atterraggio. La propulsione \`e affidata a sei motori
+brushless \textbf{AIR2213 KV920} (tre in rotazione oraria e tre antioraria,
+necessari per l'equilibrio di coppia del multirotore), pilotati da sei ESC
+\textbf{Tekko32 F4} con telemetria DShot. Quest'ultima \`e particolarmente
+utile ai fini del progetto, perch\'e permette di registrare regime, corrente e
+temperatura di ciascun motore (Capitolo~\ref{cap:acquisizione}).
+
+\subsection{Avionica e navigazione}
+Il flight controller \`e un \textbf{Pixhawk 6X}, basato su microcontrollore
+STM32H7 e progettato per il firmware PX4. Integra \textbf{tre IMU ridondanti}
+(accelerometro + giroscopio) gestite in \emph{sensor voting}: il firmware
+confronta le letture e seleziona/scarta i sensori in caso di discrepanza,
+aumentando l'affidabilit\`a della stima d'assetto. La navigazione si appoggia
+a un modulo \textbf{GNSS CubePilot Here+} (con magnetometro integrato) montato
+su un mast di circa 15\,cm per allontanarlo dalle interferenze
+elettromagnetiche generate dai cavi di potenza e dai motori. Il sistema
+supporta la correzione \textbf{RTK} tramite una stazione base, per una
+precisione di posizionamento centimetrica.
+
+\subsection{Alimentazione}
+L'energia \`e fornita da una batteria \textbf{LiPo 4S da 5600\,mAh}
+(16{,}8\,V a piena carica, connettore XT60). La PDB distribuisce la potenza ai
+sei ESC; un regolatore step-down (BEC) ricava i 5\,V per l'avionica e le
+periferiche. Il monitoraggio di tensione e corrente avviene tramite un power
+module collegato al Pixhawk, la cui corretta configurazione \`e stata oggetto
+di un intervento specifico (Capitolo~\ref{cap:configurazione}).
+
+\subsection{Comunicazione e controllo}
+Il controllo manuale avviene tramite un radiocomando FrSky con ricevitore
+\textbf{X8R} a bordo. Il collegamento dati con la ground station
+\textbf{QGroundControl} \`e realizzato da una coppia di moduli telemetria
+\textbf{Holybro a 433\,MHz}, che trasmette telemetria in tempo reale e consente
+la modifica dei parametri e il monitoraggio dei failsafe.
+
+\section{Sintesi della Bill of Materials}
+
+La Tabella~\ref{tab:bom} riepiloga i componenti principali con i codici
+identificativi adottati nel repository (S struttura, P propulsione, A avionica,
+E alimentazione, C comunicazione, SW software). Il dettaglio completo, con note
+e voci ancora in via di definizione, \`e mantenuto nel file \texttt{docs/BOM.md}.
+
+\begin{table}[H]
+\centering
+\caption{Estratto della Bill of Materials dell'esacottero F550.}
+\label{tab:bom}
+\small
+\begin{tabularx}{\linewidth}{@{}l L{3.2cm} L{3.6cm} c@{}}
+\toprule
+\textbf{ID} & \textbf{Componente} & \textbf{Modello} & \textbf{Q.t\`a} \\
+\midrule
+S-01 & Frame & DJI F550 (PDB integrata) & 1 \\
+S-02 & Carrello & Piedi flessibili ad arco & 1 set \\
+S-03 & Mast GPS & Albero $\sim$15\,cm anti-EMI & 1 \\
+\addlinespace
+P-01 & Motore brushless & AIR2213 / KV920 & 6 \\
+P-02 & ESC & Tekko32 F4 (telemetria DShot) & 6 \\
+P-03 & Eliche & 2 pale (dim.\ da confermare) & 6 \\
+\addlinespace
+A-01 & Flight controller & Pixhawk 6X (PX4, 3 IMU) & 1 \\
+A-06 & GPS / GNSS & CubePilot Here+ (su mast) & 1 \\
+A-07 & Base RTK & Stazione base & 1 \\
+A-09 & Cavo GPS$\leftrightarrow$Pixhawk & Auto-costruito, schermato (JST-GH) & 1 \\
+\addlinespace
+E-01 & Batteria & LiPo 4S 5600\,mAh (XT60) & 1 \\
+E-02 & BEC / regolatore & Step-down 16{,}8\,V $\rightarrow$ 5\,V & 1 \\
+\addlinespace
+C-01 & Ricevitore RC & FrSky X8R & 1 \\
+C-03 & Telemetria & Holybro 433\,MHz (TX/RX) & 1 set \\
+\addlinespace
+SW-01 & Firmware FC & PX4 & --- \\
+SW-02 & Ground station & QGroundControl & --- \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{notabox}[Nota sulla configurazione hardware]
+Il flight controller attuale (Pixhawk 6X) \`e il risultato di una sostituzione
+hardware resa necessaria da un guasto del precedente Cube Black
+(Capitolo~\ref{cap:diagnostici}). Anche il cavo GPS \`e stato ricostruito con
+schermatura dedicata a seguito della diagnosi dei dropout
+\texttt{sensor\_gps}. La BOM riflette quindi lo stato hardware consolidato a
+valle di questi interventi.
+\end{notabox}

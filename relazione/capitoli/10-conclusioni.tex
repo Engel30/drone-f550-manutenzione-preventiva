@@ -1,0 +1,43 @@
+\chapter{Conclusioni}
+\label{cap:conclusioni}
+
+Il progetto ha percorso l'intero arco previsto: \emph{mettere in funzione} il
+drone, \emph{configurarlo} con QGroundControl e PX4, ed \emph{eseguire i test
+acquisendo dati}. Al termine, l'esacottero F550 \`e un velivolo volabile e
+pienamente strumentato, con una catena di acquisizione (147 topic uORB, FIFO
+inerziali a $\sim$1\,kHz, telemetria ESC e batteria) adeguata alla diagnosi dello
+stato di salute.
+
+\section{Risultati principali}
+
+\begin{itemize}
+  \item \textbf{Sistema operativo e strumentato}: configurazione completa di
+        sensori, GPS UART, power module, telemetria ESC, failsafe e profilo di
+        logging.
+  \item \textbf{Campagna di volo conclusa}: hover baseline e con pala 5\,\%/10\,\%
+        (Set A--C), traiettorie quadrate 5\,\%/10\,\% (Set D--E) e un blocco extra
+        con payload (Set P).
+  \item \textbf{Guasti diagnosticati e risolti}: dalla sostituzione del flight
+        controller alla ricostruzione del cavo GPS (ri-crimpatura e schermatura),
+        che ha eliminato il contatto meccanico intermittente responsabile dei
+        dropout (BER 49\,\%\,$\rightarrow$\,0{,}24\,\%); resta aperto, come secondo
+        modo di guasto indipendente, lo stallo del driver GPS in modo RTK, per cui
+        la campagna \`e stata condotta in GPS standard. Ogni caso \`e stato
+        documentato con la sua diagnosi e azione correttiva.
+  \item \textbf{Dati utili}: le metriche estratte (vibrazione,
+        \texttt{imbalanced\_prop}, rapporto comando/RPM) discriminano il livello
+        di danno alla pala, confermando la bont\`a dell'acquisizione.
+  \item \textbf{Contributo extra}: una pipeline di visualizzazione 3D in Foxglove
+        per il replay dei voli.
+\end{itemize}
+
+\section{Limiti e sviluppi futuri}
+
+La campagna non comprende le traiettorie casuali (Set F/G), non eseguite, n\'e le
+prove al 15\,\% (sospese dal docente). Il bias strutturale di montaggio
+(M3/M6 vs M4/M5) andrebbe caratterizzato e corretto prima di estendere le analisi
+alle traiettorie. Sul fronte hardware, la ridondanza GPS (secondo modulo M9N) e
+l'upgrade a un ricevitore multi-banda (ZED-F9P) migliorerebbero robustezza e
+precisione RTK. Infine, le analisi del Capitolo~\ref{cap:osservazioni} possono
+essere estese con un'analisi FFT sistematica dei FIFO inerziali per legare le
+firme spettrali al tipo e al livello di danno.

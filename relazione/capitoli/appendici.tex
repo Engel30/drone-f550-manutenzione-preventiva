@@ -1,0 +1,114 @@
+\chapter{Appendici}
+\label{cap:appendici}
+
+Le appendici raccolgono i dettagli fini richiamati dai capitoli ma tenuti fuori
+dal corpo principale per leggibilit\`a.
+
+\section{Mappatura dei log per sessione}
+
+Le tabelle seguenti mappano i file \texttt{.ulg} alle prove del piano voli. Il
+dettaglio completo (tensioni di batteria, voli di riscaldamento e ripetizioni per
+batteria scarica) \`e nei file \texttt{log/<data>/README.md} del repository.
+
+\begin{table}[H]
+\centering
+\caption{Set A--C --- hover (27/05 e 04/06). Pala a turno su M1\ldots M6.}
+\label{tab:app-abc}
+\scriptsize
+\begin{tabularx}{\linewidth}{@{}c L{4.0cm} l@{}}
+\toprule
+\textbf{Prova} & \textbf{Configurazione} & \textbf{Log} \\
+\midrule
+A.1--A.6 & Pale sane (swap coppie) & \texttt{2026-05-27/13\_56\_40 \ldots 14\_15\_52} \\
+\addlinespace
+B.1 & Pala 5\,\% su M1 & \texttt{2026-05-27/16\_00\_57} \\
+B.2 & Pala 5\,\% su M2 & \texttt{2026-05-27/15\_47\_35} \\
+B.3 & Pala 5\,\% su M3 & \texttt{2026-05-27/16\_03\_10} \\
+B.4 & Pala 5\,\% su M4 & \texttt{2026-05-27/15\_50\_20} \\
+B.5 & Pala 5\,\% su M5 & \texttt{2026-05-27/15\_54\_10} \\
+B.6 & Pala 5\,\% su M6 & \texttt{2026-05-27/16\_05\_24} \\
+\addlinespace
+C.1 & Pala 10\,\% su M1 & \texttt{2026-05-27/16\_07\_29} \\
+C.2 & Pala 10\,\% su M2 & \texttt{2026-06-04/12\_39\_37} \\
+C.3 & Pala 10\,\% su M3 & \texttt{2026-06-04/12\_21\_42} \\
+C.4 & Pala 10\,\% su M4 & \texttt{2026-06-04/12\_43\_47} \\
+C.5 & Pala 10\,\% su M5 & \texttt{2026-06-04/12\_46\_09} \\
+C.6 & Pala 10\,\% su M6 & \texttt{2026-06-04/12\_28\_29} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Set D ed E --- quadrato 8$\times$8\,m. Il baseline pale sane \`e condiviso
+(\texttt{13\_21\_21}).}
+\label{tab:app-de}
+\scriptsize
+\begin{tabularx}{\linewidth}{@{}c l c l@{}}
+\toprule
+\textbf{Prova} & \textbf{Log (Set D, 5\,\%)} & \textbf{Prova} & \textbf{Log (Set E, 10\,\%)} \\
+\midrule
+D.1 (sane) & \texttt{2026-06-05/13\_21\_21} & E.1/E.2 & riusa D.1 \\
+D.3/D.4 (M1) & \texttt{13\_25\_30 / 13\_32\_25} & E.3/E.4 (M1) & \texttt{13\_27\_52 / 13\_33\_16} \\
+D.5/D.6 (M2) & \texttt{14\_08\_33 / 14\_11\_02} & E.5/E.6 (M2) & \texttt{13\_52\_09 / 13\_59\_52} \\
+D.7/D.8 (M3) & \texttt{13\_37\_21 / 13\_40\_36} & E.7/E.8 (M3) & \texttt{13\_37\_29 / 13\_40\_32} \\
+D.9/D.10 (M4) & \texttt{14\_17\_24 / 14\_34\_05} & E.9/E.10 (M4) & \texttt{14\_15\_24 / 14\_18\_32} \\
+D.11 (M5) & \texttt{2026-06-12/13\_20\_00} & E.11/E.12 (M5) & \texttt{14\_06\_38 / 14\_09\_45} \\
+D.13/D.14 (M6) & \texttt{13\_45\_18 / 14\_05\_24} & E.13/E.14 (M6) & \texttt{13\_44\_15 / 13\_47\_50} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Set P --- payload (12/06, blocco extra fuori piano A--G).}
+\label{tab:app-p}
+\scriptsize
+\begin{tabularx}{\linewidth}{@{}c L{4.4cm} l l@{}}
+\toprule
+\textbf{Prova} & \textbf{Configurazione} & \textbf{Traiettoria} & \textbf{Log} \\
+\midrule
+P.1 & Payload, pale sane & libera & \texttt{2026-06-12/14\_44\_38} \\
+P.2 & Payload, pale sane & libera & \texttt{2026-06-12/14\_50\_12} \\
+P.3 & Payload, pala 10\,\% M2 & quadrato & \texttt{2026-06-12/15\_29\_08} \\
+P.4 & Payload, pala 10\,\% M2 & quadrato & \texttt{2026-06-12/15\_31\_52} \\
+P.5 & Payload, pala 5\,\% M2 & quadrato & \texttt{2026-06-12/15\_35\_21} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Parametri PX4 rilevanti}
+
+\begin{table}[H]
+\centering
+\caption{Parametri PX4 principali configurati durante il progetto.}
+\label{tab:app-param}
+\small
+\begin{tabularx}{\linewidth}{@{}l l L{6.4cm}@{}}
+\toprule
+\textbf{Parametro} & \textbf{Valore} & \textbf{Funzione} \\
+\midrule
+\texttt{UAVCAN\_ENABLE} & 0 & Disabilita DroneCAN (GPS su UART) \\
+\texttt{GPS\_1\_CONFIG} & 202 & GPS su porta GPS\,2 \\
+\texttt{GPS\_DUMP\_COMM} & 1 & Dump UART grezzo per diagnosi (poi disattivabile) \\
+\texttt{BAT1\_V\_CHANNEL} & 16 & Canale ADC tensione batteria \\
+\texttt{BAT1\_I\_CHANNEL} & 17 & Canale ADC corrente batteria \\
+\texttt{DSHOT\_CONFIG} & 600 & DShot600 verso gli ESC \\
+\texttt{DSHOT\_TEL\_CFG} & 102 & Telemetria ESC su TELEM2 \\
+\texttt{SDLOG\_PROFILE} & 849 & Profilo di logging (default+HF+3IMU+FIFO) \\
+\texttt{IMU\_GYRO\_RATEMAX} & 1000 & Frequenza massima giroscopio (Hz) \\
+\texttt{EKF2\_NOAID\_TOUT} & 10\,s & Timeout EKF perdita posizione \\
+\texttt{COM\_POSCTL\_NAVL} & Altitude & Failsafe perdita posizione in POSCTL \\
+\texttt{MPC\_XY\_VEL\_MAX} & 5\,m/s & Velocit\`a orizzontale massima \\
+\texttt{MPC\_TILTMAX\_AIR} & 25\textdegree & Tilt massimo in volo \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Riferimenti al repository}
+
+I documenti di dettaglio sono mantenuti nel repository di progetto:
+\texttt{diario.md} (cronologia), \texttt{piano-voli.md} (piano completo),
+\texttt{docs/BOM.md} (BOM), \texttt{maintenance/} (troubleshooting e checklist),
+\texttt{analisi/} (analisi pale), \texttt{plot/} (script e grafici),
+\texttt{foxglove/} (pipeline di visualizzazione).

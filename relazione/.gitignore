@@ -1,0 +1,11 @@
+# Artefatti di compilazione LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+capitoli/*.aux

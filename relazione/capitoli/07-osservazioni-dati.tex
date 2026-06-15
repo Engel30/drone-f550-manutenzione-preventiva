@@ -1,0 +1,78 @@
+\chapter{Osservazioni sui dati}
+\label{cap:osservazioni}
+
+\begin{notabox}[Capitolo non richiesto dal progetto]
+Le analisi quantitative sui dati non erano un obiettivo del progetto (focalizzato
+su messa in funzione e acquisizione). Si riportano qui in forma sintetica perch\'e
+mostrano che i dati acquisiti sono effettivamente \emph{utili} alla diagnosi
+dello stato di salute, chiudendo il filo conduttore della relazione.
+\end{notabox}
+
+\section{Metodo}
+
+Per ogni log, sull'intervallo armato pi\`u lungo, sono state estratte metriche
+scalari (vibrazione accelerometro e giroscopio, \texttt{imbalanced\_prop\_metric},
+hover thrust) e metriche per-motore (RPM e comando normalizzato). Per queste
+ultime si usa il \textbf{rapporto} tra il valore medio del motore $i$ e la media
+degli altri cinque: un valore $>1$ indica che quel motore lavora pi\`u del gruppo.
+Il confronto \`e fra Set A (baseline), Set B (5\,\%) e Set C (10\,\%) in hover.
+
+\section{Vibrazione e squilibrio: baseline / 5\,\% / 10\,\%}
+
+La Tabella~\ref{tab:confronto-danno} sintetizza il confronto trasversale. Due
+risultati spiccano: (i) il danno al \textbf{5\,\% \`e quasi invisibile nelle
+medie} e vive solo nei picchi; (ii) al \textbf{10\,\% tutte le metriche di
+vibrazione raddoppiano}. La metrica con il miglior rapporto segnale/rumore \`e
+\texttt{imbalanced\_prop\_metric} ($\times$2 al 5\,\%, $\times$6 al 10\,\%).
+
+\begin{table}[H]
+\centering
+\caption{Metriche aggregate in hover: baseline vs pala 5\,\% vs pala 10\,\% (su M1).}
+\label{tab:confronto-danno}
+\small
+\begin{tabularx}{\linewidth}{@{}L{5.4cm} r r r@{}}
+\toprule
+\textbf{Metrica} & \textbf{A (sane)} & \textbf{B (5\,\%)} & \textbf{C.1 (10\,\%)} \\
+\midrule
+\texttt{accel\_vib} mean (m/s\textsuperscript{2}) & 2{,}14 & 2{,}14 & \textbf{3{,}72} \\
+\texttt{accel\_vib} max & 3{,}45 & 4{,}03 & \textbf{7{,}74} \\
+\texttt{gyro\_vib} mean (rad/s) & 0{,}255 & 0{,}232 & \textbf{0{,}393} \\
+\texttt{gyro\_vib} max & 0{,}387 & 0{,}442 & \textbf{0{,}836} \\
+\texttt{imbalanced\_prop} p95 & $-$0{,}063 & $-$0{,}134 & \textbf{$-$0{,}358} \\
+\texttt{hover\_thrust} mean & 0{,}525 & 0{,}513 & 0{,}555 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{imu_confronto.png}
+\caption{Confronto delle firme vibrazionali tra le configurazioni di pala.}
+\label{fig:imu-confronto}
+\end{figure}
+
+\section{Progressione monotona su M1}
+
+Su M1 --- l'unico motore con tutti e tre i livelli di danno --- la firma \`e
+\textbf{monotona e pulita} sia per il comando sia per gli RPM: il rapporto di
+comando passa da 0{,}975 (sano) a 0{,}995 (5\,\%) a 1{,}014 (10\,\%). Il mixer
+porta il motore dal sotto-comando strutturale al sopra-comando per compensare la
+pala mancante. La progressione quasi lineare suggerisce che questo rapporto possa
+fungere da \textbf{indicatore proxy del livello di danno} nell'intervallo
+0--10\,\%.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{imu_vibrazione.png}
+\caption{Andamento temporale della metrica di vibrazione durante l'hover.}
+\label{fig:imu-vibrazione}
+\end{figure}
+
+\section{Metriche raccomandate}
+
+In ordine di rapporto segnale/rumore osservato nel range 0--10\,\%:
+\texttt{imbalanced\_prop\_metric} p95, \texttt{accel\_vib} max, \texttt{gyro\_vib}
+max e il rapporto comando/RPM del motore danneggiato (utile per stimare il
+\emph{livello} di danno). Sono invece sconsigliate come metriche primarie
+\texttt{hover\_thrust} e le \emph{medie} di vibrazione, dominate dalla scarica
+batteria e dalla variabilit\`a inter-volo.

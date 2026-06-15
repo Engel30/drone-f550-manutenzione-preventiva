@@ -1,0 +1,66 @@
+\chapter{Foxglove e interfaccia di visualizzazione}
+\label{cap:foxglove}
+
+\begin{notabox}[Contributo extra]
+Lo strumento descritto qui non era previsto dal progetto: \`e stato realizzato per
+comodit\`a di analisi (in particolare per l'indagine forense dell'incidente del
+26/05) e si \`e rivelato utile per tutta la campagna. \`E presentato in fondo come
+contributo aggiuntivo.
+\end{notabox}
+
+\section{Motivazione}
+
+Gli script matplotlib (cartella \texttt{plot/}) sono ottimi per analisi mirate,
+ma non danno una visione \emph{spazio-temporale} del volo. Per ricostruire
+visivamente l'incidente serviva un replay 3D sincronizzato con la telemetria.
+L'extension PX4 ufficiale di Foxglove si \`e rivelata inaffidabile sui nostri log
+(alcuni topic, tra cui \texttt{vehicle\_attitude}, non venivano convertiti,
+lasciando vuoto l'albero delle trasformate). La soluzione \`e stata una pipeline
+custom che precompila tutto il necessario nel file di output.
+
+\section{Pipeline \texttt{.ulg} $\rightarrow$ \texttt{.mcap}}
+
+Lo script \texttt{foxglove/ulog\_to\_mcap.py} converte il log PX4 in un file
+\texttt{.mcap} \textbf{autoconsistente} (nessun plugin richiesto in Foxglove).
+Oltre a copiare i 147 topic uORB originali, lo script inietta i dati derivati
+necessari al replay 3D:
+
+\begin{itemize}
+  \item le trasformate \texttt{/tf} corpo (\texttt{local\_origin}$\rightarrow$
+        \texttt{base\_link}) con conversione di coordinate NED$\rightarrow$ENU e
+        FRD$\rightarrow$FLU;
+  \item le trasformate delle sei eliche, con angolo integrato dagli RPM di
+        \texttt{esc\_status} e fattore di scala visivo (per evitare l'aliasing
+        \emph{wagon-wheel});
+  \item topic interpretativi (\texttt{attitude\_euler} in gradi,
+        \texttt{flight\_state} con quota positivo-up e nomi leggibili dei modi di
+        volo) e i \texttt{logged\_messages} del firmware.
+\end{itemize}
+
+\figurasegnaposto{Schema della pipeline \texttt{.ulg} $\rightarrow$
+\texttt{.mcap} $\rightarrow$ Foxglove (topic uORB + transform + derivati).}{Schema
+-- da generare}{fig:pipeline-mcap}
+
+\section{Modello 3D e scena}
+
+Il drone \`e rappresentato da un modello \textbf{URDF} puro
+(\texttt{f550.urdf}), stilizzato ma fedele alle proporzioni dell'F550 (frame,
+mast GPS, sei bracci con motori ed eliche), con i due bracci anteriori colorati
+per indicare il fronte. La scelta dell'URDF rispetto a una mesh fotorealistica
+privilegia riproducibilit\`a, manutenibilit\`a e leggibilit\`a tecnica. \`E
+disponibile anche un \textbf{overlay satellitare} georeferenziato sul punto di
+decollo (tile ESRI World Imagery), embeddato direttamente nel \texttt{.mcap}.
+
+\section{Layout dei pannelli}
+
+Il layout committato (\texttt{foxglove/drone f550.json}) organizza 9 pannelli in
+due colonne: a sinistra la scena 3D con RPM motori, comandi mixer e input del
+pilota; a destra i messaggi di log, le transizioni di stato di volo, la qualit\`a
+del fix GPS e l'altitudine. Durante lo scrubbing si vede simultaneamente il drone
+muoversi nello spazio e l'evoluzione di tutte le grandezze diagnostiche --- la
+modalit\`a con cui \`e stata ricostruita la dinamica dell'incidente del
+Capitolo~\ref{cap:diagnostici}.
+
+\figurasegnaposto{Screenshot dell'interfaccia Foxglove realizzata: scena 3D con
+modello URDF, overlay satellitare e pannelli di telemetria sincronizzati.}{Screenshot
+-- da catturare, chiave}{fig:foxglove-ui}

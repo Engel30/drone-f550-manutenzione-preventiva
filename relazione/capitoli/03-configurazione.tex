@@ -1,0 +1,222 @@
+\chapter{Configurazione: QGroundControl e firmware PX4}
+\label{cap:configurazione}
+
+Una volta assemblato l'hardware, il velivolo deve essere reso \emph{volabile}:
+occorre dire al firmware com'\`e fatto il drone, tarare i sensori e abilitare la
+registrazione dei dati. Tutte queste operazioni sono state svolte tramite la
+\textbf{ground station QGroundControl} (QGC), l'applicazione desktop che dialoga
+con il firmware \textbf{PX4} del Pixhawk 6X: permette di leggere e scrivere i
+\emph{parametri} del veicolo, eseguire le calibrazioni e monitorare la telemetria
+in tempo reale.
+
+Il collegamento tra QGC e il Pixhawk \`e sempre avvenuto attraverso il
+\textbf{link radio di telemetria a 433\,MHz}, sia a banco sia in campo: la coppia
+di moduli Holybro fa da ponte seriale wireless tra il computer e il flight
+controller, e non \`e mai stato necessario collegare il drone via cavo USB. Questa
+scelta ha il vantaggio di lavorare sempre nella stessa configurazione con cui il
+drone vola, senza spostare cavi tra banco e campo.
+
+Il capitolo ripercorre le configurazioni che hanno reso il drone operativo e
+strumentato per l'acquisizione dati. Diamo spazio anche alle \textbf{limitazioni
+e alle problematiche} incontrate: anche queste fanno parte a pieno titolo del
+lavoro svolto, perch\'e documentano i limiti reali della piattaforma.
+
+\section{Calibrazioni e setup iniziale}
+
+Il \emph{commissioning} (la prima messa a punto del veicolo) parte dalla
+selezione dell'\textbf{airframe}, cio\`e il modello geometrico con cui PX4 sa
+quanti motori ci sono e come sono disposti: nel nostro caso la configurazione
+esacottero \texttt{hexa\_x} (sei motori a X). Da qui PX4 ricava la
+\emph{matrice di mixing}, ossia come tradurre i comandi di assetto in spinte sui
+singoli motori.
+
+Si procede poi con la \textbf{calibrazione dei sensori} --- accelerometri,
+giroscopi e magnetometri --- e con la \textbf{calibrazione della radio}, che
+associa le posizioni degli stick ai canali di comando. Infine si definiscono le
+\emph{modalit\`a di volo} assegnandole agli interruttori del radiocomando.
+
+Per le prove a banco, in cui non si vuole (o non si pu\`o) avere un aggancio GPS,
+\`e stato abilitato l'\textbf{arming senza fix GPS}
+(\texttt{COM\_ARM\_WO\_GPS\,=\,1}) in modalit\`a \emph{Stabilized}; il parametro
+\`e stato riportato a \texttt{0} per i voli all'aperto, dove la posizione \`e
+indispensabile e armare senza GPS sarebbe pericoloso.
+
+\figurasegnaposto{Schermate QGroundControl delle fasi di setup: Airframe,
+Sensors/Calibration, Flight Modes.}{QGC -- da catturare}{fig:qgc-config}
+
+\section{Migrazione del GPS da CAN a UART}
+
+Il modulo GNSS (u-blox NEO-M8P, integrato nel CubePilot Here+) era originariamente
+interfacciato al flight controller \textbf{Cube Black} tramite bus
+\textbf{DroneCAN}, un protocollo seriale a due fili condiviso tra pi\`u
+dispositivi. La sostituzione del controllore con il Pixhawk 6X, resa necessaria dal
+guasto del Cube Black (Capitolo~\ref{cap:diagnostici}), ha reso non pi\`u
+utilizzabile quel collegamento: non si disponeva di un cablaggio CAN compatibile
+con il nuovo controllore. Si \`e quindi optato per un collegamento su porta
+\textbf{UART} dedicata (la GPS2), adattando un cavo con un connettore realizzato su
+misura. La soluzione, oltre a rendere possibile l'integrazione, offre un vantaggio
+diagnostico: l'UART \`e un collegamento punto-punto, privo dell'overhead del bus e
+pi\`u agevole da analizzare a livello di flusso seriale. Lo stesso cavo \`e stato
+successivamente oggetto di un intervento migliorativo, documentato nel medesimo
+capitolo.
+
+Subito dopo la migrazione il GPS non agganciava pi\`u alcun satellite: la console
+di QGC riportava \texttt{baudrate: 0} e \texttt{rate reading: 0\,B/s}, segno che
+sulla porta non transitava alcun dato. La causa era duplice --- un residuo della
+configurazione DroneCAN ancora attiva e un disallineamento tra la \emph{porta
+logica} dichiarata nei parametri e la \emph{porta fisica} a cui il cavo era
+collegato. La soluzione \`e nei parametri di Tabella~\ref{tab:gps-migr}, seguiti
+da un \emph{cold start} all'aperto (primo aggancio da fermo, a cielo libero).
+
+\begin{table}[H]
+\centering
+\caption{Parametri risolutivi della migrazione GPS da DroneCAN a UART.}
+\label{tab:gps-migr}
+\small
+\begin{tabularx}{\linewidth}{@{}l l L{7.2cm}@{}}
+\toprule
+\textbf{Parametro} & \textbf{Valore} & \textbf{Motivazione} \\
+\midrule
+\texttt{UAVCAN\_ENABLE} & 0 & Disabilita DroneCAN, in conflitto col driver UART \\
+\texttt{GPS\_1\_CONFIG} & 202 (GPS\,2) & Allinea la porta logica al cavo fisico (era 201 = GPS\,1) \\
+\texttt{GPS\_1\_PROTOCOL} & 1 (UBX) & Protocollo binario u-blox \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{notabox}[Nota di configurazione]
+Ogni cambio di firmware o riconfigurazione della porta GPS richiede di
+riverificare la corrispondenza tra il parametro \texttt{GPS\_x\_CONFIG} e la porta
+fisica usata. Va inoltre segnalato che sul Pixhawk 6X non esistono i parametri
+\texttt{CAN\_Px\_DRIVER} citati in parte della documentazione: per disattivare il
+bus \`e sufficiente \texttt{UAVCAN\_ENABLE\,=\,0}.
+\end{notabox}
+
+\figurasegnaposto{Schema della migrazione GPS DroneCAN$\rightarrow$UART: cablaggio
+prima e dopo.}{Schema -- da generare}{fig:gps-can-uart}
+
+\section{Power module e calibrazione della batteria}
+
+Il \emph{power module} \`e il sensore che misura tensione e corrente assorbite
+dalla batteria e le pubblica al firmware. Inizialmente non pubblicava affatto il
+topic \texttt{battery\_status} (lo stato risultava \emph{never published}): il
+firmware non sapeva su quali ingressi analogici leggere i due valori. Assegnando
+i canali ADC corretti (\texttt{BAT1\_V\_CHANNEL\,=\,16} per la tensione,
+\texttt{BAT1\_I\_CHANNEL\,=\,17} per la corrente) e completando la calibrazione di
+tensione, la telemetria di tensione e corrente \`e diventata disponibile a
+$\sim$5\,Hz.
+
+La taratura della batteria \`e tuttavia rimasta \textbf{problematica}. Il firmware
+continua a segnalare alcuni \textbf{parametri mancanti} nella configurazione del
+pacco e, di conseguenza, mostra in QGC un \textbf{livello di carica fisso}, non
+legato allo stato reale della batteria. Lo stesso si riflette nei log: la
+\textbf{percentuale di carica (SoC) registrata non \`e affidabile} e non
+rispecchia la scarica effettiva. Per questo motivo, durante la campagna di volo,
+l'autonomia residua \`e stata valutata in modo indiretto --- sulla
+\textbf{tensione di pacco} e sul tempo di volo --- e non sulla percentuale
+riportata dal firmware (vedi anche Capitolo~\ref{cap:campagna}). Tensione e
+corrente istantanee restano comunque corrette e utilizzabili.
+
+\section{Telemetria ESC su TELEM2}
+
+Gli ESC (\emph{Electronic Speed Controller}, i regolatori che pilotano i motori)
+sono Tekko32 F4 con firmware AM32 e sono comandati in \textbf{DShot}, un
+protocollo digitale che invia i comandi di spinta senza le imprecisioni del
+vecchio segnale PWM analogico. Ogni ESC restituisce inoltre la propria
+\textbf{telemetria} (la cosiddetta telemetria KISS) su un filo dedicato; i sei
+fili sono uniti su un'unica linea seriale (TELEM2). Per evitare collisioni sul bus
+condiviso, il flight controller interroga gli ESC uno alla volta
+(\emph{request-driven}): chiede il dato e attende la risposta, in sequenza.
+
+La configurazione \`e riassunta in Tabella~\ref{tab:esc-tel}. Il risultato \`e il
+topic \texttt{esc\_status} a $\sim$65\,Hz, con regime (RPM), tensione, corrente e
+temperatura di ciascuno dei sei motori --- dati centrali per individuare squilibri
+ed eliche danneggiate (Capitolo~\ref{cap:campagna}).
+
+\begin{table}[H]
+\centering
+\caption{Parametri della telemetria ESC e del logging ad alta frequenza.}
+\label{tab:esc-tel}
+\small
+\begin{tabularx}{\linewidth}{@{}l l L{7.2cm}@{}}
+\toprule
+\textbf{Parametro} & \textbf{Valore} & \textbf{Significato} \\
+\midrule
+\texttt{DSHOT\_CONFIG} & 600 & Protocollo DShot600 di comando agli ESC \\
+\texttt{DSHOT\_TEL\_CFG} & 102 (TELEM2) & Porta seriale su cui leggere la telemetria KISS \\
+\texttt{SDLOG\_PROFILE} & 849 & Profilo di logging (vedi Cap.~\ref{cap:acquisizione}) \\
+\texttt{IMU\_GYRO\_RATEMAX} & 1000\,Hz & Frequenza massima del giroscopio \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Modalit\`a di volo e failsafe}
+
+Nei test sono state usate due modalit\`a di volo. In \emph{Stabilized} il pilota
+comanda direttamente l'assetto (inclinazione) del drone, mentre la quota \`e
+gestita manualmente con il throttle; \`e la modalit\`a usata per gli hover e per
+le prove con le pale. In \emph{Position} (POSCTL) il velivolo mantiene
+attivamente la propria posizione usando il GPS, e a stick fermi resta sul punto;
+\`e la modalit\`a usata per le traiettorie.
+
+Un \textbf{failsafe} \`e una reazione automatica del firmware a una condizione
+anomala. Quello pi\`u rilevante per noi \`e il failsafe di \textbf{perdita di
+posizione}: se la stima di posizione diventa inaffidabile, PX4 pu\`o forzare un
+atterraggio automatico \enquote{alla cieca} (\emph{blind-land}). A seguito degli
+eventi descritti nel Capitolo~\ref{cap:diagnostici}, abbiamo rivisto questo
+comportamento. Il punto chiave \`e che la decisione reale di blind-land nasce a
+livello del filtro di stima \textbf{EKF} (il filtro che fonde IMU, GPS e
+barometro per stimare assetto e posizione), tramite il parametro
+\texttt{EKF2\_NOAID\_TOUT}, e non solo nei parametri del \emph{commander}: agire
+solo su questi ultimi non basta. La Tabella~\ref{tab:failsafe} riassume la
+configurazione adottata, orientata a concedere pi\`u tempo prima del failsafe e a
+ridurre la deriva orizzontale durante un eventuale evento.
+
+\begin{table}[H]
+\centering
+\caption{Configurazione del failsafe di perdita posizione e dei limiti di volo.}
+\label{tab:failsafe}
+\small
+\begin{tabularx}{\linewidth}{@{}l c c L{6.2cm}@{}}
+\toprule
+\textbf{Parametro} & \textbf{Default} & \textbf{Applicato} & \textbf{Motivazione} \\
+\midrule
+\texttt{EKF2\_NOAID\_TOUT} & 5\,s & \textbf{10\,s} & Ritarda \texttt{xy\_valid=false}, vera causa del blind-land \\
+\texttt{COM\_POSCTL\_NAVL} & Land & \textbf{Altitude} & Lascia gli stick orizzontali attivi al pilota \\
+\texttt{COM\_POS\_FS\_EPH} & 5\,m & 10\,m & Soglia di accuratezza orizzontale del commander \\
+\texttt{MPC\_XY\_VEL\_MAX} & 12\,m/s & \textbf{5\,m/s} & Riduce la deriva orizzontale massima \\
+\texttt{MPC\_TILTMAX\_AIR} & 45\textdegree & \textbf{25\textdegree} & Limita inclinazione e velocit\`a massima \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Limitazioni e problematiche riscontrate}
+
+La configurazione ha avuto alcuni limiti che merita documentare:
+
+\begin{itemize}
+  \item \textbf{RTK non utilizzabile}: la correzione RTK, che porterebbe la
+        precisione di posizione a livello centimetrico, non \`e stata sfruttabile
+        perch\'e il driver GPS va in crash alla ricezione dei \emph{fix}
+        (Capitolo~\ref{cap:diagnostici}). La campagna \`e quindi stata condotta
+        con il solo GPS standard ($\sim$80\,cm di precisione).
+  \item \textbf{Parametri non disponibili nella build PX4}: alcuni parametri di
+        failsafe documentati nei manuali (\texttt{COM\_POS\_FS\_DELAY},
+        \texttt{COM\_POS\_FS\_EPV}) non esistono in questa versione del firmware;
+        altri (\texttt{MPC\_JERK\_MAX}, \texttt{MPC\_ACC\_HOR}) non sono
+        modificabili a mano perch\'e vincolati automaticamente dal \emph{trajectory
+        shaping} (la generazione interna della traiettoria). In QGC gli slider
+        \emph{Flight Behavior} agiscono come comandi di alto livello su questi
+        gruppi di parametri.
+  \item \textbf{Override RC spurio sul canale yaw}: in un volo automatico la
+        missione \`e stata interrotta da un \emph{takeover} (passaggio forzato al
+        controllo manuale) non voluto, innescato da un piccolo disturbo
+        ($\sim$10\,\%) sul canale yaw a stick fermi. Pur sotto la soglia nominale
+        \texttt{COM\_RC\_STICK\_OV}, il disturbo \`e bastato a far scattare
+        l'override. Le mitigazioni possibili sono allargare la \emph{deadzone} del
+        canale, alzare la soglia o disabilitare l'override in modalit\`a
+        automatica.
+\end{itemize}
+
+\figurasegnaposto{Schermata QGC di una problematica riscontrata (es.\ qualit\`a
+RTK insufficiente o messaggio di failsafe).}{QGC -- da catturare}{fig:qgc-problema}

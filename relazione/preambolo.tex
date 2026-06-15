@@ -1,0 +1,114 @@
+% =====================================================================
+%  Preambolo / template TEMPORANEO della relazione
+%  Corso di Manutenzione Preventiva - A.A. 2025/2026 - Esacottero F550
+%  NB: template provvisorio, da rifinire quando il docente fissa il formato.
+% =====================================================================
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{textcomp}
+\usepackage{csquotes}
+\usepackage{microtype}
+
+% --- Lingua ---
+% Usa babel italiano se disponibile (pacchetto Debian: texlive-lang-italian);
+% altrimenti ripiega su babel inglese con etichette/data in italiano, cos\`i la
+% compilazione non si blocca. Per la sillabazione italiana corretta installare:
+%   sudo apt-get install texlive-lang-italian
+\IfFileExists{italian.ldf}{%
+  \usepackage[italian]{babel}%
+}{%
+  \usepackage[english]{babel}%
+  \addto\captionsenglish{%
+    \renewcommand{\contentsname}{Indice}%
+    \renewcommand{\chaptername}{Capitolo}%
+    \renewcommand{\appendixname}{Appendice}%
+    \renewcommand{\tablename}{Tabella}%
+    \renewcommand{\figurename}{Figura}%
+    \renewcommand{\listtablename}{Elenco delle tabelle}%
+    \renewcommand{\listfigurename}{Elenco delle figure}%
+    \renewcommand{\bibname}{Riferimenti}}%
+  \AtBeginDocument{\renewcommand{\today}{\number\day~\ifcase\month\or gennaio\or
+    febbraio\or marzo\or aprile\or maggio\or giugno\or luglio\or agosto\or
+    settembre\or ottobre\or novembre\or dicembre\fi~\number\year}}%
+}
+
+% --- Geometria pagina ---
+\usepackage{amssymb}
+\usepackage[a4paper,top=2.6cm,bottom=2.6cm,left=2.7cm,right=2.7cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% --- Tabelle ---
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{longtable}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+% --- Figure ---
+\usepackage{graphicx}
+\graphicspath{{img/}{../img/}{../plot/}{../plot/imu/}{../plot/esc/}{../plot/batteria/}{../plot/incidente/}}
+\usepackage{float}
+\usepackage[font=small,labelfont=bf,margin=1em]{caption}
+
+% --- Colori e box ---
+\usepackage{xcolor}
+\definecolor{blunavy}{HTML}{1F3A5F}
+\definecolor{griginochiaro}{HTML}{F2F4F7}
+\definecolor{accentoblu}{HTML}{2D6CDF}
+\usepackage[most]{tcolorbox}
+
+% Box generico per note/avvertenze
+\newtcolorbox{notabox}[1][Nota]{
+  colback=griginochiaro, colframe=blunavy, fonttitle=\bfseries,
+  title=#1, boxrule=0.6pt, arc=2pt, left=4pt, right=4pt, top=3pt, bottom=3pt}
+
+% Box checklist
+\newtcolorbox{checklistbox}[1][Checklist]{
+  colback=white, colframe=accentoblu, fonttitle=\bfseries\color{white},
+  coltitle=white, title=#1, boxrule=0.8pt, arc=2pt}
+
+% --- Liste ---
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=3pt}
+
+% --- Intestazioni ---
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\nouppercase{\leftmark}}
+\fancyhead[R]{\small Manutenzione Preventiva --- F550}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Titoli capitolo/sezione coerenti col colore
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{blunavy}}
+  {\chaptertitlename\ \thechapter}{14pt}{\Huge}
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{blunavy}}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{blunavy!85}}{\thesubsection}{1em}{}
+
+% --- Link ---
+\usepackage[hidelinks]{hyperref}
+\hypersetup{
+  colorlinks=true, linkcolor=blunavy, citecolor=blunavy,
+  urlcolor=accentoblu, pdftitle={Relazione Manutenzione Preventiva F550}}
+
+% --- Comando segnaposto figura (img/ ancora da popolare) ---
+% Uso: \figurasegnaposto{didascalia}{tipo}{label}
+\newcommand{\figurasegnaposto}[3]{%
+  \begin{figure}[H]\centering
+  \fbox{\begin{minipage}[c][3.2cm][c]{0.8\linewidth}\centering
+    \textit{[Segnaposto figura --- #2]}\\[2pt]\small #1
+  \end{minipage}}
+  \caption{#1}\label{#3}
+  \end{figure}}
+
+% Acronimo TODO visibile in bozza
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{[DA FARE: #1]}}}

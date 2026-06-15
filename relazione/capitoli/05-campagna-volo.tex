@@ -1,0 +1,155 @@
+\chapter{Campagna di volo}
+\label{cap:campagna}
+
+La campagna di volo \`e la fase in cui il drone, ormai configurato e strumentato,
+viene fatto volare per \emph{acquisire dati}. L'obiettivo \`e studiare in modo
+sistematico come il \textbf{danneggiamento di una pala} si rifletta sul
+comportamento dell'esacottero e, soprattutto, sui dati registrati a bordo. Questo
+capitolo descrive la metodologia adottata, i tipi di volo eseguiti e il quadro
+complessivo delle sessioni.
+
+\section{Metodologia}
+
+L'idea sperimentale \`e semplice: \textbf{isolare una variabile alla volta} e
+confrontare i dati con una condizione di riferimento. Si parte da una
+\emph{baseline} con tutte le eliche integre e si introduce poi, in modo
+controllato e ripetibile, un danno noto su una sola pala.
+
+\begin{description}
+  \item[Baseline (pale sane)] tutte e sei le eliche integre. Per smascherare un
+        eventuale \emph{bias} di montaggio (un piccolo squilibrio dovuto al modo
+        in cui le pale sono fissate), a ogni volo baseline si scambia la posizione
+        di due pale.
+  \item[Pala danneggiata] \emph{una} pala viene accorciata di una percentuale
+        nota della sua lunghezza e montata a turno su ciascuno dei sei motori
+        (M1\ldots M6). L'accorciamento riproduce in modo ripetibile l'effetto di
+        un'elica usurata o scheggiata: riduce la spinta di quel rotore e ne
+        sbilancia la massa, generando vibrazione e costringendo il controllore a
+        compensare.
+\end{description}
+
+Ogni volo segue lo stesso schema --- durata di circa un minuto e registrazione
+completa su scheda SD --- per rendere i log confrontabili tra loro.
+
+\begin{notabox}[Che cosa significa \enquote{pala 5\,\%} e \enquote{pala 10\,\%}]
+La pala di prova viene accorciata, rispetto alla lunghezza nominale, del
+\textbf{5\,\%} oppure del \textbf{10\,\%}. Maggiore l'accorciamento, maggiore lo
+squilibrio aerodinamico e di massa: il 5\,\% rappresenta un danno \emph{lieve}
+(visibile solo nei picchi delle metriche), il 10\,\% un danno \emph{marcato} (le
+metriche di vibrazione raddoppiano, vedi Capitolo~\ref{cap:osservazioni}). Le
+prove al 15\,\% sono state sospese per decisione del docente.
+\end{notabox}
+
+\section{Numerazione dei motori e tipi di traiettoria}
+
+Per attribuire un effetto al motore giusto serve una convenzione di numerazione
+non ambigua. Si adotta quella del layout PX4 \texttt{hexa\_x}
+(Figura~\ref{fig:mappa-motori}): le coppie di motori diagonalmente opposti sono
+M1$\leftrightarrow$M2, M3$\leftrightarrow$M6 e M4$\leftrightarrow$M5; le rotazioni
+sono antiorarie (CCW) su M1, M2, M5 e orarie (CW) su M3, M4, M6.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.62\linewidth}
+\centering
+\ttfamily\small
+\begin{tabular}{c}
+fronte $\blacktriangle$ \\[2pt]
+M2 ----- M6 \\
+/\hspace{3.2cm}\textbackslash \\
+M3 \hspace{2.6cm} M5 \\
+\textbackslash\hspace{3.2cm}/ \\
+M4 ----- M1 \\
+\end{tabular}
+\end{minipage}
+\caption{Layout e numerazione dei motori (PX4 \texttt{hexa\_x}, vista
+dall'alto). Schema provvisorio testuale, da sostituire con figura vettoriale.}
+\label{fig:mappa-motori}
+\end{figure}
+
+Sono state usate due geometrie di volo, scelte per sollecitare il sistema in modi
+diversi:
+
+\begin{description}
+  \item[Hover stazionario] il drone mantiene la quota fermo sul posto, in
+        modalit\`a \emph{Stabilized} con controllo manuale. \`E la condizione pi\`u
+        \enquote{pulita} per misurare vibrazione e squilibrio, perch\'e il velivolo
+        non manovra. Comprende i Set A--C.
+  \item[Quadrato] il drone percorre un quadrato di lato $\sim$8\,m a una quota di
+        $\sim$8\,m. Qui la pala danneggiata deve lavorare anche durante le
+        manovre, sollecitando il controllore. Comprende i Set D--E.
+\end{description}
+
+I quadrati sono stati eseguiti in \textbf{modalit\`a di volo autonoma}: la
+traiettoria non viene pilotata a mano, ma definita in anticipo come piano di volo
+e seguita automaticamente dal firmware. Concretamente, nella vista
+\emph{Plan} di QGroundControl si dispone una sequenza di \emph{waypoint} ai quattro
+vertici del quadrato, preceduti da un waypoint di decollo e chiusi da uno di
+atterraggio; per ogni waypoint si fissano quota e velocit\`a di crociera. Il piano
+viene poi caricato sul veicolo, che lo esegue in modalit\`a \emph{Mission}
+(AUTO). Eseguire i quadrati in autonomo --- anzich\'e a mano --- garantisce che la
+\textbf{traiettoria sia ripetibile} tra un volo e l'altro, eliminando la
+variabilit\`a del pilota e rendendo confrontabili le prove a parit\`a di danno.
+
+\figurasegnaposto{Planimetria delle traiettorie: hover stazionario e quadrato
+8$\times$8\,m.}{Schema -- da generare}{fig:traiettorie}
+\figurasegnaposto{Foto della pala accorciata al 5\,\% e al 10\,\% a confronto con
+una pala integra.}{Foto -- da scattare, chiave}{fig:pala-danno}
+
+\section{Quadro delle sessioni e dei Set}
+
+La Tabella~\ref{tab:set} riepiloga i Set previsti e il loro stato finale. La
+campagna \`e considerata \textbf{conclusa}: sono stati completati gli hover
+(Set A--C) e i quadrati (Set D--E), pi\`u un blocco aggiuntivo con \textbf{payload}
+(Set P) non previsto nel piano originale. Le tabelle volo-per-volo, con la
+mappatura tra file di log e prova, sono raccolte in
+Appendice~\ref{cap:appendici}.
+
+\begin{table}[H]
+\centering
+\caption{Riepilogo dei Set di volo (stato finale della campagna).}
+\label{tab:set}
+\small
+\begin{tabularx}{\linewidth}{@{}c L{6.4cm} c@{}}
+\toprule
+\textbf{Set} & \textbf{Tipo di volo} & \textbf{Eseguiti} \\
+\midrule
+A & Hover, pale sane (swap posizione) & 6/6 \\
+B & Hover, pala 5\,\% ($\times$6 motori) & 6/6 \\
+C & Hover, pala 10\,\% ($\times$6 motori) & 6/6 \\
+D & Quadrato 8$\times$8\,m, pala 5\,\% & 13/14 \\
+E & Quadrato 8$\times$8\,m, pala 10\,\% & 14/14 \\
+F & Traiettoria casuale, pala 5\,\% & non eseguito \\
+G & Traiettoria casuale, pala 10\,\% & non eseguito \\
+\midrule
+P & Payload (2 liberi sani + 3 quadrati M2) & 5 \\
+\midrule
+H/I/L & Prove al 15\,\% & \emph{sospese (docente)} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Condizioni operative e voli scartati}
+
+Le sessioni in campo si sono svolte con vento da \textbf{15 a 25\,km/h}, una
+condizione non ideale che ha richiesto correzioni continue del pilota e che si
+riflette nella variabilit\`a dei dati. Il fattore pi\`u limitante \`e per\`o stato
+l'\textbf{autonomia della batteria}: in pi\`u occasioni la seconda met\`a di una
+sessione ha richiesto ripetizioni (atterraggi manuali, voli annullati) per pacco
+ormai scarico, soprattutto sulle prove dei motori M4 e M6. Poich\'e la percentuale
+di carica riportata dal firmware non \`e affidabile (Capitolo~\ref{cap:configurazione}),
+lo stato del pacco \`e stato sorvegliato sulla \textbf{tensione} e sul tempo di
+volo.
+
+Alcuni voli sono stati deliberatamente \textbf{scartati} per cause note --- un
+atterraggio d'emergenza per batteria scarica e un decollo fallito per errore del
+magnetometro. Tenere traccia di questi episodi \`e essenziale per non confondere un
+artefatto operativo con un reale effetto del danno alla pala.
+
+\begin{notabox}[Bias strutturale da considerare]
+L'analisi dei voli baseline ha evidenziato un \textbf{bias di montaggio} costante
+e indipendente dal danno (M3/M6 leggermente sotto-comandati, M4/M5
+sopra-comandati, nell'ordine del $\pm$6\,\%). \`E importante caratterizzarlo per
+non confonderlo con la firma del danno alla pala
+(Capitolo~\ref{cap:osservazioni}).
+\end{notabox}

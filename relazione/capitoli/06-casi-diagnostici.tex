@@ -1,0 +1,297 @@
+\chapter{Casi diagnostici}
+\label{cap:diagnostici}
+
+La messa in funzione del drone ha attraversato diversi guasti e anomalie. Questo
+capitolo li raccoglie raggruppandoli per \textbf{sottosistema}, anzich\'e in
+stretto ordine cronologico: ciascun caso \`e stato l'occasione per una diagnosi
+sistematica e per un'azione correttiva, e ogni soluzione adottata si \`e tradotta
+in una buona pratica per i voli successivi. Si parte dal flight controller, si
+passa al collegamento GPS (il sottosistema che ha richiesto pi\`u lavoro), si
+discute la mancata disponibilit\`a dell'RTK e il quasi-incidente da perdita di
+posizione che ne \`e derivato, e si chiude con l'analisi di un incidente in volo.
+
+\section{Sostituzione del flight controller}
+
+Il flight controller iniziale era un \textbf{CubePilot Cube Black} (basato sul
+microcontrollore STM32F427). Dopo aver impostato \texttt{IMU\_GYRO\_RATEMAX} a una
+frequenza troppo alta per quel processore, il modulo ha smesso di connettersi al
+computer: la porta seriale appariva per pochi secondi e poi spariva. Il parametro
+corrotto risiede nella \textbf{memoria flash interna} del controller, non sulla
+scheda SD; per questo reflashare il firmware --- operazione che sovrascrive il
+codice ma non l'area dei parametri --- non risolveva. Tutti i tentativi software
+(cambio cavo, script di avvio con \texttt{param reset\_all}, recovery da
+bootloader) sono falliti, perch\'e il blocco avviene durante l'inizializzazione
+degli IMU, \emph{prima} che la console diventi disponibile. La soluzione \`e stata
+la \textbf{sostituzione hardware} con il Pixhawk 6X, basato sul pi\`u potente
+STM32H7.
+
+\begin{notabox}[Lezione appresa]
+Il valore di \texttt{IMU\_GYRO\_RATEMAX} va scelto in base al microcontrollore:
+sullo STM32F427 del Cube Black non conviene superare $\sim$2000\,Hz, mentre le
+frequenze pi\`u alte richiedono uno STM32H7 (come quello del Pixhawk 6X). \`E
+inoltre utile disporre di un programmatore SWD (ST-Link) per il recupero a basso
+livello in caso di blocco.
+\end{notabox}
+
+\section{Messa a punto del collegamento GPS}
+
+\subsection{Mancato aggancio dopo la migrazione a UART}
+
+Il primo problema sul GPS si \`e presentato subito dopo lo spostamento del modulo
+dal bus DroneCAN alla porta UART: il ricevitore non agganciava alcun satellite. La
+causa (un residuo di configurazione DroneCAN e un disallineamento tra porta logica
+e porta fisica) e la relativa soluzione sono descritte nel
+Capitolo~\ref{cap:configurazione}.
+
+\subsection{Dropout del GPS in volo: diagnosi e soluzione}
+
+Risolto l'aggancio, durante i voli all'aperto sono comparsi ripetuti
+\textbf{dropout} del topic \texttt{sensor\_gps}: in QGC si leggevano messaggi di
+\enquote{GPS failsafe} e \enquote{GNSS data fusion stopped}, con conseguente
+retrocessione della modalit\`a di volo. Il fenomeno era intermittente e si
+manifestava in volo, non a terra.
+
+Per diagnosticarlo si \`e abilitato \texttt{GPS\_DUMP\_COMM\,=\,1}, che pubblica il
+flusso seriale grezzo del ricevitore nel topic \texttt{gps\_dump}: questo ha
+permesso di analizzare il bytestream UBX (il protocollo binario u-blox)
+frame-per-frame. Misurando la frazione di byte corrotti in ricezione (il
+\emph{bit error rate}, BER) si \`e visto che a motori al minimo il link \`e
+praticamente pulito (BER 0{,}2\,\%), mentre in volo il BER diventa
+\textbf{erratico}, oscillando tra 0{,}2\,\% e 49\,\% \emph{a parit\`a di regime
+motori} (Tabella~\ref{tab:ber}). \`E un dettaglio cruciale: il volo
+\texttt{13\_51\_13}, pur girando al regime di lift pi\`u alto della sessione
+(39\,597 sum-RPM), resta pulito allo 0{,}2\,\%, mentre \texttt{13\_51\_37}, a
+regime inferiore, collassa al 49\,\%. Il BER non scala dunque con la potenza
+erogata.
+
+\begin{table}[H]
+\centering
+\caption{BER del link GPS (byte fuori frame in ricezione). A motori fermi il link
+\`e pulito; in volo il BER diventa erratico \emph{a parit\`a di regime}: si
+confronti \texttt{13\_51\_13} (regime massimo, link pulito) con \texttt{13\_51\_37}
+(regime inferiore, BER 49\,\%). L'assenza di correlazione con la potenza esclude
+un accoppiamento EMI dai cavi motore.}
+\label{tab:ber}
+\small
+\begin{tabularx}{\linewidth}{@{}l r r r c@{}}
+\toprule
+\textbf{Log} & \textbf{Durata} & \textbf{Sum-RPM max} & \textbf{Garbage RX} & \textbf{Reinit driver} \\
+\midrule
+\texttt{13\_50\_41} (idle) & 12\,s & 4\,270 & 0{,}2\,\% & 0 \\
+\texttt{13\_51\_13} (volo) & 20\,s & 39\,597 & 0{,}2\,\% & 0 \\
+\texttt{13\_50\_52} (volo) & 12\,s & 26\,826 & 14{,}8\,\% & 1 \\
+\texttt{13\_51\_37} (volo) & 96\,s & 32\,841 & \textbf{49{,}0\,\%} & 2 \\
+\texttt{13\_40\_57} (volo) & 344\,s & 47\,740 & 15{,}5\,\% & 6 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+La diagnosi ha escluso le cause alternative (perdita di satelliti, brownout
+dell'alimentazione 5\,V, reset del modulo comandato da PX4, firmware, baud rate
+errato) e --- punto su cui vale la pena soffermarsi --- ha \textbf{falsificato
+anche l'ipotesi delle interferenze elettromagnetiche (EMI)}. Se il disturbo fosse
+irradiato dallo stadio motori e accoppiato sulla linea seriale, il BER dovrebbe
+crescere con la corrente nei cavi di potenza; invece il volo \texttt{13\_51\_13}
+\`e pulito proprio al regime di lift pi\`u alto, e le metriche RF del ricevitore
+(\texttt{noise\_per\_ms}, \texttt{jamming\_indicator}, \texttt{agc}) restano
+costanti prima, durante e dopo i dropout. La firma dei dati --- BER che salta tra
+0{,}2\,\% e 49\,\% a parit\`a di regime --- \`e invece quella di un
+\textbf{contatto meccanico intermittente nel cavo auto-costruito}, che si apre e
+richiude sotto le vibrazioni del telaio a seconda di come il cavo si posa.
+
+La soluzione \`e stata \textbf{ricostruire il cavo, ri-crimparlo e schermarlo}:
+una calza in rame stagnato attorno ai conduttori, con \emph{drain wire} (filo di
+drenaggio) saldato a massa solo dal lato Pixhawk, hot-glue sui connettori JST-GH e
+instradamento separato dai cavi motore. La schermatura rimuove un eventuale
+contributo EMI residuo, ma \`e soprattutto la ri-crimpatura a eliminare il
+contatto marginale, che era la causa dominante. Il volo di accettazione ha
+riprodotto proprio le condizioni che prima facevano collassare il link, con esito
+positivo: il BER \`e crollato dal \textbf{49\,\% allo 0{,}24\,\%} a parit\`a di
+regime motori, con \textbf{zero reinizializzazioni} del driver e nessun buco del
+topic \texttt{sensor\_gps} superiore a 2\,s. La causa radice \`e quindi rimossa, e
+il cavo schermato \`e entrato nella BOM come configurazione consolidata.
+
+La rimozione di questo guasto ha per\`o messo in luce un \textbf{secondo modo di
+guasto, indipendente}, che il cavo difettoso prima mascherava: con il cavo sano, i
+voli in GPS puro del 04/06 non mostrano pi\`u alcun reinit, ma quelli in RTK
+s\`i. Le due cause sono dunque \emph{in sequenza} --- prima il cavo, poi l'RTK ---
+e quest'ultima \`e oggetto della sezione seguente.
+
+\figurasegnaposto{Foto del cavo GPS schermato (calza in rame stagnato + drain
+wire), prima e dopo la ricostruzione.}{Foto -- da scattare}{fig:cavo-gps}
+
+\section{RTK non utilizzabile: voli con il solo GPS}
+
+Il sistema prevede la correzione \textbf{RTK} (\emph{Real-Time Kinematic}), che
+sfrutta una stazione base a terra per portare la precisione di posizione dai
+$\sim$80\,cm del GPS standard al livello centimetrico. Nella pratica, per\`o, non
+\`e stato possibile utilizzarla: \textbf{quando il ricevitore inizia a ricevere le
+correzioni e ad agganciare un \emph{fix} RTK, il driver GPS di PX4 va in crash} e
+si re-inizializza, interrompendo per alcuni secondi la pubblicazione del topic
+\texttt{sensor\_gps}. Il malfunzionamento si manifesta proprio nel momento in cui
+l'RTK porterebbe il suo vantaggio, rendendo la correzione di fatto inutilizzabile
+(la diagnosi \`e documentata in dettaglio nel troubleshooting di progetto).
+
+Si \`e quindi deciso di condurre \textbf{l'intera campagna con il solo GPS
+standard}. Per il tipo di prove svolte questa scelta non \`e penalizzante: la
+precisione di $\sim$80\,cm \`e pi\`u che sufficiente, perch\'e l'oggetto dello
+studio \`e l'effetto del danno alla pala su vibrazioni, RPM e comandi ai motori ---
+grandezze che non dipendono dalla precisione assoluta di posizione --- e la
+ripetibilit\`a della traiettoria \`e comunque garantita dal piano di volo
+autonomo.
+
+\subsection{Evidenza A/B: la precondizione \`e il modo RTK}
+
+Resta da stabilire \emph{che cosa} esattamente inneschi il crash del driver:
+una singola correzione RTCM malformata, oppure il modo RTK in s\'e (cio\`e il
+fatto stesso di iniettare il flusso RTCM nel ricevitore). Una sessione del 04/06
+ha offerto un confronto \textbf{A/B quasi sperimentale}: tre voli con la
+\emph{stessa} traiettoria quadrata, eseguiti di seguito, in cui l'unica variabile
+che cambia \`e il modo GPS (Tabella~\ref{tab:rtk-ab}).
+
+\begin{table}[H]
+\centering
+\caption{Confronto A/B sulla stessa missione quadrata (04/06): a parit\`a di
+traiettoria cambia solo il modo GPS. Il \emph{fix} RTK \`e identificato dalla
+congiunzione di tre segnali (\texttt{fix\_type}$\geq$5, RTCM iniettato a bordo,
+\texttt{eph} a livello centimetrico).}
+\label{tab:rtk-ab}
+\small
+\begin{tabularx}{\linewidth}{@{}l l r r L{4.4cm}@{}}
+\toprule
+\textbf{Volo} & \textbf{Modo} & \textbf{eph} & \textbf{RTCM} & \textbf{Esito} \\
+\midrule
+\texttt{14\_06\_22} & RTK reale & 3{,}5\,cm & 3{,}1/s & 21\,s, 0 reinit, sano \\
+\texttt{14\_07\_19} & RTK reale & 1{,}9\,cm & 3{,}1/s & \textbf{1 reinit $\rightarrow$ 28{,}4\,s di outage $\rightarrow$ failsafe ALTCTL} \\
+\texttt{14\_13\_15} & GPS puro & 54\,cm & 0 & 124\,s, \textbf{0 perdite} di GPS \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Il dato decisivo \`e che il volo problematico (\texttt{14\_07\_19}) ha perso il
+GPS con il flusso di correzioni \textbf{sano fino all'ultimo campione} (CRC RTCM a
+zero, rate stabile, \texttt{eph} di 1{,}7\,cm sull'ultimo \emph{fix} valido): non
+\`e quindi una correzione corrotta a innescare lo stallo, ma il \textbf{modo RTK
+stesso}. La controprova \`e il volo gemello in GPS puro (\texttt{14\_13\_15}), che
+ha ripetuto la medesima missione per oltre due minuti senza alcuna interruzione.
+Questa \`e la ragione per cui la campagna \`e stata condotta deliberatamente in
+GPS standard: oltre a non servire la precisione centimetrica, volare senza RTK
+\emph{evita il modo di guasto}.
+
+\begin{notabox}[Come si distingue GPS puro da RTK reale in un log]
+Nessun campo da solo \`e affidabile. La firma robusta di RTK realmente attivo \`e
+la \textbf{congiunzione} di tre segnali indipendenti in \texttt{sensor\_gps}:
+\texttt{fix\_type}$\geq$5 (5 = RTK-float, 6 = RTK-fixed),
+\texttt{rtcm\_injection\_rate}$>$0 (PX4 sta iniettando correzioni) ed
+\texttt{eph} che scende sotto $\sim$10\,cm (precisione che solo l'RTK fornisce).
+Il campo \texttt{rtcm\_msg\_used} \`e invece \textbf{inutilizzabile} su questo
+modulo: vale sempre 0 (\enquote{unknown}) anche nei voli con \texttt{eph} di
+2\,cm, perch\'e il driver non lo popola.
+\end{notabox}
+
+Un raffinamento importante del modello di guasto: la \textbf{metrica di gravit\`a
+non \`e il numero di reinizializzazioni}, ma la \textbf{durata dell'outage}.
+In \texttt{14\_07\_19} una \emph{singola} reinit ha prodotto 28{,}4\,s di buco di
+navigazione e un failsafe operativo, mentre altrove una reinit isolata si \`e
+risolta in un gap di 2\,s del tutto benigno. La reinizializzazione del driver \`e
+il \emph{recupero}, non il grilletto: ci\`o che conta \`e quanto a lungo l'EKF
+resta senza aggiornamenti di posizione --- ed \`e proprio questo che governa il
+failsafe discusso nella sezione seguente.
+
+\section{Quasi-incidente da perdita GPS e failsafe a due livelli}
+
+Prima di ricostruire il cavo, due voli del 26/05 (\texttt{10\_45\_41.ulg} e
+\texttt{10\_54\_52.ulg}) hanno mostrato la \textbf{conseguenza pi\`u pericolosa} di
+un dropout GPS: non il buco di dati in s\'e, ma la \textbf{reazione del failsafe}.
+In entrambi i voli la pubblicazione di \texttt{sensor\_gps} si \`e interrotta per
+un intervallo \textbf{quasi identico} --- 21{,}605\,s e 21{,}609\,s, una
+coincidenza al centesimo che indica un comportamento deterministico del driver,
+non un guasto stocastico. Durante il buco il drone \`e finito in deriva
+orizzontale incontrollata e il pilota ha dovuto contrastarlo manualmente,
+generando i picchi di corrente (fino a $\sim$47\,A) che si osservano nei log come
+una classica \textbf{PIO}.
+
+L'aspetto sorprendente emerso applicando le contromisure \`e che il parametro
+\enquote{ovvio} (\texttt{COM\_POSCTL\_NAVL}, la policy del \emph{commander} alla
+perdita di posizione) \textbf{era gi\`a impostato in modo conservativo}, eppure il
+\emph{blind-land} \`e scattato lo stesso. La ragione \`e che PX4 ha
+\textbf{due livelli di failsafe} sovrapposti sulla perdita di posizione
+(Tabella~\ref{tab:failsafe-2liv}), e il livello basso scavalca quello alto.
+
+\begin{table}[H]
+\centering
+\caption{I due livelli di failsafe sulla perdita di posizione. Il livello basso
+(\texttt{mc\_pos\_control}) interviene per primo e scavalca la policy del
+\emph{commander}.}
+\label{tab:failsafe-2liv}
+\small
+\begin{tabularx}{\linewidth}{@{}l L{4.0cm} L{6.0cm}@{}}
+\toprule
+\textbf{Livello} & \textbf{Modulo} & \textbf{Logica e parametro} \\
+\midrule
+Alto & \texttt{commander} & \enquote{La posizione \`e persa, applico la policy}: \texttt{COM\_POSCTL\_NAVL}, \texttt{COM\_POS\_FS\_EPH} \\
+Basso & \texttt{mc\_pos\_control} & \enquote{Non ricevo setpoint validi, atterro alla cieca}: blind-land verticale \emph{hard-coded} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Il vero \enquote{rubinetto} che decide \emph{quanto a lungo} l'EKF tollera
+l'assenza di GPS prima di dichiarare \texttt{xy\_valid\,=\,false} --- e quindi di
+far scattare il blind-land di \texttt{mc\_pos\_control} --- \`e
+\texttt{EKF2\_NOAID\_TOUT}, non i parametri del \emph{commander}. \`E per questo che
+la configurazione del failsafe (Tabella~\ref{tab:failsafe},
+Capitolo~\ref{cap:configurazione}) agisce \emph{prima} su quel parametro,
+portandolo al massimo consentito dal firmware (10\,s, dal default di 5\,s). Va
+osservato un \textbf{limite residuo}: poich\'e il gap osservato \`e di
+$\sim$21{,}6\,s e il \emph{cap} firmware \`e 10\,s, resta una finestra di
+$\sim$11{,}6\,s in cui il failsafe scatta comunque. Le mitigazioni di contorno
+--- velocit\`a orizzontale e tilt massimo ridotti --- servono proprio a
+\textbf{dimezzare la deriva} durante quella finestra scoperta, mentre la rete di
+sicurezza finale resta procedurale: il pilota \`e istruito a passare
+immediatamente in \emph{Stabilized}, che bypassa l'intero stack di failsafe e
+restituisce controllo manuale puro.
+
+\begin{notabox}[Lezione appresa]
+In PX4 il failsafe di perdita posizione non si governa dal solo
+\emph{commander}: il controllore di basso livello (\texttt{mc\_pos\_control}) ha un
+blind-land \emph{hard-coded} che interviene per primo. Il parametro realmente
+determinante \`e \texttt{EKF2\_NOAID\_TOUT}; agire sui soli parametri commander
+d\`a una falsa sensazione di sicurezza.
+\end{notabox}
+
+\section{Analisi forense dell'incidente in volo}
+
+In una delle sessioni si \`e verificato uno \textbf{schianto}, analizzato in
+dettaglio a partire dal log (\texttt{11\_14\_44.ulg}). Il drone, in decollo
+automatico a $\sim$3\,m, si \`e capovolto dopo circa 13\,s. La ricostruzione
+(Figure~\ref{fig:incidente-crono} e~\ref{fig:incidente-dyn}) individua una causa
+\textbf{procedurale}, non un guasto hardware: al passaggio dal modo automatico a
+POSCTL, lo stick del throttle era a fondo corsa ($-1{,}0$), interpretato da PX4
+come comando di \emph{discesa massima}. Il tentativo di recupero del pilota ha
+innescato una PIO (\emph{Pilot Induced Oscillation}, un'oscillazione che si
+auto-alimenta a causa dei comandi del pilota) divergente fino al ribaltamento; il
+\emph{commander} \`e poi passato autonomamente ad \texttt{AUTO\_LAND} con il drone
+gi\`a capovolto, e l'impatto \`e avvenuto in caduta libera ($v_z = +4{,}95$\,m/s).
+Tutti gli indicatori hardware (batteria, RPM, vibrazioni, EKF) erano nominali fino
+all'urto.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{cronologia_volo.png}
+\caption{Cronologia dell'incidente: roll/pitch/yaw e quota con gli eventi
+annotati (takeover, AUTO\_LAND, impatto).}
+\label{fig:incidente-crono}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{dinamica_angolare.png}
+\caption{Dinamica angolare: rate setpoint vs misurato sui tre assi. La
+saturazione del rate ($\pm$220\textdegree/s) \`e la firma della PIO.}
+\label{fig:incidente-dyn}
+\end{figure}
+
+Da questa analisi discendono alcune precauzioni operative concrete: portare lo
+stick del throttle in posizione neutra \emph{prima} di ogni cambio di modo verso
+POSCTL, preferire ALTCTL come modalit\`a di transizione, rivedere il tuning del
+controllore di rate e verificare l'integrit\`a strutturale dopo ogni impatto.

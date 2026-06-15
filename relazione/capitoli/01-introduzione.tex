@@ -1,0 +1,78 @@
+\chapter{Introduzione}
+\label{cap:introduzione}
+
+\section{Obiettivo del progetto}
+
+Questa relazione documenta le attivit\`a di \textbf{manutenzione preventiva}
+svolte su un esacottero \textbf{DJI F550} equipaggiato con \textbf{Pixhawk 6X}
+e firmware \textbf{PX4}, nell'ambito dell'omonimo corso (A.A. 2025/2026).
+Il progetto non si limita alla manutenzione in senso stretto: esso ripercorre
+l'intero ciclo di \emph{messa in funzione} del velivolo, dalla configurazione
+del flight controller fino all'esecuzione di una campagna di voli mirata
+all'\emph{acquisizione di dati} utili a caratterizzare lo stato di salute del
+sistema.
+
+Il filo conduttore del lavoro \`e riassumibile in tre fasi:
+\begin{enumerate}
+  \item \textbf{mettere in funzione} il drone, partendo da una piattaforma
+        hardware da assemblare e diagnosticare;
+  \item \textbf{configurarlo} tramite QGroundControl e i parametri PX4, fino a
+        ottenere un velivolo volabile e strumentato per il logging;
+  \item \textbf{eseguire i test acquisendo dati}, conducendo una campagna di
+        voli che comprende baseline a pale sane e prove con pale volutamente
+        danneggiate, su traiettorie di hover e quadrato.
+\end{enumerate}
+
+La prospettiva della manutenzione preventiva, tema del corso, attraversa tutte e
+tre le fasi: l'attenzione \`e rivolta a \emph{strumentare} il velivolo --- cio\`e
+a predisporre l'acquisizione delle grandezze che permettono di riconoscere per
+tempo una degradazione --- pi\`u che a riparare a guasto avvenuto. In quest'ottica
+ogni anomalia incontrata (dropout GPS, blocco del flight controller, incidente in
+volo) viene documentata insieme alla diagnosi e all'azione correttiva adottata.
+
+\section{Contesto del corso e metodo di lavoro}
+
+Il lavoro \`e stato condotto da un team di tre persone (Angelo, Matteo,
+Federico) nell'arco di pi\`u sessioni, da marzo a giugno 2026. Tutto il
+materiale \`e stato tracciato in un repository versionato che raccoglie la
+documentazione tecnica (\emph{Bill of Materials}, datasheet), i piani di
+manutenzione, i log di volo in formato ULog di PX4 e gli strumenti di analisi
+(script di plotting e una pipeline di visualizzazione 3D in Foxglove). Questa
+relazione \`e l'estratto ragionato di quel materiale.
+
+L'impostazione scelta \`e \textbf{tematico-cronologica}: i capitoli sono
+organizzati per tema, e all'interno di ciascun tema si segue l'ordine
+temporale degli eventi. Questa scelta evita di frammentare lo stesso argomento
+su pi\`u giornate --- il sottosistema GPS, ad esempio, \`e stato toccato in
+cinque sessioni diverse, ma viene trattato in modo unitario nel
+Capitolo~\ref{cap:diagnostici}.
+
+\section{Sintesi del sistema}
+
+Il velivolo \`e un esacottero a sei rotori su frame DJI F550, con
+distribuzione di potenza integrata nella piastra inferiore. Il cervello di
+bordo \`e un flight controller Pixhawk 6X, dotato di tre IMU ridondanti
+gestite in \emph{sensor voting} dal firmware PX4. La navigazione si appoggia a
+un modulo GNSS montato su mast (per allontanarlo dalle interferenze
+elettromagnetiche dei motori) con supporto a correzione RTK. La
+configurazione, il monitoraggio e l'analisi delle missioni avvengono tramite
+la ground station QGroundControl, collegata via telemetria a 433\,MHz.
+Il Capitolo~\ref{cap:sistema} dettaglia l'architettura e ne riepiloga la
+\emph{Bill of Materials}.
+
+\figurasegnaposto{Esacottero DJI F550 in configurazione di volo (immagine di
+apertura).}{Foto -- da scattare}{fig:drone-apertura}
+
+\section{Struttura della relazione}
+
+La relazione \`e organizzata come segue. Il Capitolo~\ref{cap:sistema}
+descrive l'architettura hardware. Il Capitolo~\ref{cap:configurazione} ripercorre
+la configurazione via QGroundControl e PX4, con le problematiche incontrate. Il
+Capitolo~\ref{cap:acquisizione} --- cardine del progetto --- spiega \emph{cosa}
+viene loggato e \emph{a che frequenza}. Il Capitolo~\ref{cap:campagna} presenta
+la campagna di volo e tutti i tipi di prova eseguiti. Il
+Capitolo~\ref{cap:diagnostici} raccoglie i casi diagnostici pi\`u significativi.
+Il Capitolo~\ref{cap:osservazioni} propone alcune osservazioni sui dati
+acquisiti. Il Capitolo~\ref{cap:foxglove} presenta, come contributo extra, lo
+strumento di visualizzazione realizzato. Le conclusioni e le appendici chiudono
+il documento.

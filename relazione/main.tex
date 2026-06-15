@@ -1,0 +1,60 @@
+% =====================================================================
+%  RELAZIONE FINALE - Corso di Manutenzione Preventiva A.A. 2025/2026
+%  Esacottero DJI F550 - Pixhawk 6X - PX4
+%
+%  Compilazione:  pdflatex main && pdflatex main   (due passate per ToC)
+%  Template TEMPORANEO - vedi relazione/linee-guida.md
+% =====================================================================
+\documentclass[11pt,a4paper,oneside]{report}
+\input{preambolo}
+
+\begin{document}
+
+% --------------------------- FRONTESPIZIO ---------------------------
+\begin{titlepage}
+\centering
+\vspace*{1.5cm}
+{\scshape\large Universit\`a --- Corso di Manutenzione Preventiva\par}
+{\scshape A.A. 2025/2026\par}
+\vspace{2.5cm}
+{\color{blunavy}\rule{\linewidth}{1.2pt}}\par\vspace{0.6cm}
+{\Huge\bfseries\color{blunavy} Manutenzione preventiva di un esacottero DJI F550\par}
+\vspace{0.5cm}
+{\Large Messa in funzione, configurazione PX4 e campagna di acquisizione dati\par}
+\vspace{0.4cm}
+{\color{blunavy}\rule{\linewidth}{1.2pt}}\par
+
+\vspace{2.5cm}
+{\large\textbf{Team}\par}
+\vspace{0.3cm}
+{\large Angelo \quad\textbullet\quad Matteo \quad\textbullet\quad Federico\par}
+
+\vfill
+{\large Piattaforma: DJI F550 $\cdot$ Pixhawk 6X $\cdot$ firmware PX4 $\cdot$ QGroundControl\par}
+\vspace{0.5cm}
+{\large \today\par}
+\end{titlepage}
+
+% --------------------------- INDICE ---------------------------
+\tableofcontents
+\thispagestyle{empty}
+\cleardoublepage
+
+\setcounter{page}{1}
+
+% --------------------------- CAPITOLI ---------------------------
+\input{capitoli/01-introduzione}
+\input{capitoli/02-sistema}
+\input{capitoli/03-configurazione}
+\input{capitoli/04-acquisizione-dati}
+\input{capitoli/05-campagna-volo}
+\input{capitoli/06-casi-diagnostici}
+\input{capitoli/07-osservazioni-dati}
+\input{capitoli/09-foxglove}
+\input{capitoli/10-conclusioni}
+
+% --------------------------- APPENDICI ---------------------------
+\appendix
+\input{capitoli/appendici}
+
+\end{document}
