@@ -4,11 +4,70 @@ Cronologia delle attività svolte sul progetto F550, in ordine cronologico
 **inverso** (più recente in alto). Ogni voce riassume il lavoro di giornata e
 rimanda al documento di dettaglio.
 
-Per il piano voli ancora da eseguire vedi [`piano-voli.md`](piano-voli.md).
+Per il quadro dei voli (tutti eseguiti) vedi [`piano-voli.md`](piano-voli.md).
 Per le azioni bloccanti prima del prossimo volo vedi
 [`maintenance/azioni-pre-prossimo-volo.md`](maintenance/azioni-pre-prossimo-volo.md).
 
 ---
+
+## ✅ Stato progetto (2026-06-15) — fase voli conclusa, si passa alla relazione
+
+La **campagna di volo è considerata conclusa**: ai Set A–C (hover, completati il
+27/05 e 04/06) si sono aggiunte le sessioni di traiettoria **2026-06-05**
+(Set D, quadrato 5 %) e **2026-06-12** (Set E, quadrato 10 % + il quadrato M5
+5 % mancante del Set D + un blocco extra **payload**). I **Set F e G
+(traiettoria casuale)** **non sono stati eseguiti**; i Set 15 % (H/I/L) restano
+`[SOSPESO]` per decisione del docente.
+
+**Prossima attività → redazione della relazione finale del corso.** Le prossime
+sessioni di lavoro saranno dedicate a stendere la relazione (cartella
+[`relazione/`](relazione/), attualmente vuota) raccogliendo diagnosi, analisi
+pale e log di tutta la campagna. Formato/struttura ancora da concordare col
+docente (vedi `CLAUDE.md`).
+
+> ⚠️ **Da chiudere prima della relazione** (dettaglio in
+> [`piano-voli.md`](piano-voli.md)):
+> - **06-05 / Set D**: ora **13/14** slot coperti (M5 5 % recuperato il 12/06;
+>   baseline D.2 riusa D.1, pale sane). Resta solo **D.12** (ripetizione M5 5 %):
+>   volato 1 solo volo M5 5 %, senza ripetizione — accettabile o da recuperare.
+> - **06-12 / Set E**: ✅ **verificato e mappato** (27 log, README coerente entro
+>   ±2 s). I **Set F/G casuali non sono stati volati**; il payload è un blocco
+>   extra (Set P). Dettaglio in
+>   [`maintenance/verifica-log-12-06-2026.md`](maintenance/verifica-log-12-06-2026.md).
+
+---
+
+## 2026-06-12 — Set E (quadrato 10 %) + quadrato M5 5 % + payload ✅
+
+- Sessione di **traiettoria quadrata 3×3 m** con pala accorciata (gli hover erano
+  già stati fatti il 27/05 e 04/06): **Set E (10 %)** su tutti i motori + il
+  **quadrato M5 5 %** mancante del Set D (Volo 1). Secondo blocco con **payload**
+  (2 voli liberi a pale sane + 3 quadrati con pala su M2 → Set P). **27 log
+  `.ulg`** in [`log/2026-06-12/`](log/2026-06-12/).
+- ✅ **Verifica chiusa** (tempo armato + quota da `pyulog`): cartella ricaricata
+  dall'utente (prima mancava `13_16_19.ulg`, che sfasava il mapping). Ora README
+  e file **coerenti entro ±2 s** su tutte le 27 voci. Dettaglio in
+  [`maintenance/verifica-log-12-06-2026.md`](maintenance/verifica-log-12-06-2026.md).
+- 🔧 Correzioni applicate: README sezione 2 era "hover" → **quadrati**; Volo 1
+  "M4 5 %" → **M5 5 %** (refuso, confermato: riempie lo slot D.11). Mappatura
+  Set E e blocco payload riportata in [`piano-voli.md`](piano-voli.md).
+- ⚠️ Note: i **Set F/G (casuale) non sono stati volati**; M2 e M5 al 10 % hanno
+  un volo scartato ciascuno (Volo 10 batteria scarica, Volo 12 magnetometro).
+
+## 2026-06-05 — Set D: traiettoria quadrata, pala 5 % ✅ (parziale)
+
+- Prove di **traiettoria quadrata 3×3 m con danno 5 %** (Set D), vento
+  **18–25 km/h**. **33 log `.ulg`** in [`log/2026-06-05/`](log/2026-06-05/) =
+  18 voli reali degli appunti + 3 voli di riscaldamento pre-sessione + alcuni
+  hop/arming abortiti. README di cartella scritto con la mappatura completa
+  file ↔ volo ↔ motore (durate armato estratte dai log con `pyulog`).
+- Pala 5 % provata su **M1, M2, M3, M4, M6** (baseline ×1). **M4 e M6 con molte
+  ripetizioni** non per protocollo ma per **batteria scarica** (atterraggi
+  manuali, voli annullati): l'autonomia ha condizionato la seconda metà sessione.
+- ⚠️ **Lacune Set D**: manca **pala 5 % su M5** (D.11/D.12) e il **2° baseline**
+  (D.2). Da recuperare o cercare in altra sessione.
+- → [`log/2026-06-05/README.md`](log/2026-06-05/README.md) (mappatura completa)
+- → [`piano-voli.md`](piano-voli.md) (tabella Set D popolata)
 
 ## 2026-06-04 — Volo di accettazione cavo GPS schermato ✅
 
